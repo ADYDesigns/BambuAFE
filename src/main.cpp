@@ -10,8 +10,7 @@
  * On subsequent boots:
  *   - Reads config.json
  *   - Connects to Wi-Fi
- *   - Connects to Bambu Cloud MQTT using stored token
- *   - Connects to Bambu Cloud MQTT broker (us.mqtt.bambulab.com:8883)
+ *   - Connects to Bambu Cloud MQTT broker using stored token and configured region
  *   - Subscribes to both printer report topics
  *   - Parses print state and exhaust fan status to drive a shared PWM fan
  *   - Serves a password-protected status dashboard at / (index.html)
