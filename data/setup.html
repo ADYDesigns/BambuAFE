@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BambuAFE Setup</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      padding: 2rem 2.5rem;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    .logo-icon {
+      width: 38px; height: 38px;
+      background: #2563eb;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .logo-icon svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2; }
+
+    h1 { font-size: 1.2rem; font-weight: 600; color: #111827; }
+    .subtitle { font-size: 0.85rem; color: #6b7280; margin-top: 2px; }
+
+    .divider { border: none; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #9ca3af;
+      margin-bottom: 0.75rem;
+    }
+
+    .field { margin-bottom: 1rem; }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 0.3rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      color: #111827;
+      background: #f9fafb;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+      background: #fff;
+    }
+
+    input::placeholder { color: #9ca3af; }
+
+    .show-pass {
+      float: right;
+      font-size: 0.78rem;
+      color: #2563eb;
+      cursor: pointer;
+      user-select: none;
+      margin-bottom: 0.3rem;
+    }
+
+    .show-pass:hover { text-decoration: underline; }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 0.7rem;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    button[type="submit"]:hover  { background: #1d4ed8; }
+    button[type="submit"]:active { transform: scale(0.98); }
+
+    .scan-btn {
+      font-size: 0.78rem;
+      color: #2563eb;
+      cursor: pointer;
+      border: none;
+      background: none;
+      padding: 0;
+      margin-top: 0.2rem;
+      display: inline-block;
+    }
+
+    .scan-btn:hover { text-decoration: underline; }
+
+    #networks {
+      display: none;
+      margin-top: 0.5rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .net-item {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #f3f4f6;
+      color: #111827;
+    }
+
+    .net-item:last-child { border-bottom: none; }
+    .net-item:hover { background: #eff6ff; }
+
+    .net-signal { font-size: 0.72rem; color: #6b7280; }
+    .net-lock { color: #9ca3af; font-size: 0.8rem; }
+
+    .hint { font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem; }
+
+    .footer {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-top: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <div>
+        <h1>BambuAFE Setup</h1>
+        <div class="subtitle">Configure your ESP32</div>
+      </div>
+    </div>
+
+    <form method="POST" action="/save">
+
+      <!-- ── Wi-Fi ── -->
+      <div class="section-label">Wi-Fi</div>
+
+      <div class="field">
+        <label for="wifi_ssid">Network name (SSID)</label>
+        <input type="text" id="wifi_ssid" name="wifi_ssid"
+               placeholder="MyHomeNetwork" autocomplete="off" required>
+        <button type="button" class="scan-btn" onclick="scanNetworks()">
+          ⟳ Scan for networks
+        </button>
+        <div id="networks"></div>
+      </div>
+
+      <div class="field">
+        <label for="wifi_pass">
+          Password
+          <span class="show-pass" onclick="togglePass()">Show</span>
+        </label>
+        <input type="password" id="wifi_pass" name="wifi_pass"
+               placeholder="Leave blank if open network" autocomplete="new-password">
+      </div>
+
+      <hr class="divider">
+
+      <!-- ── Device ── -->
+      <div class="section-label">Device</div>
+
+      <div class="field">
+        <label for="device_name">Device name</label>
+        <input type="text" id="device_name" name="device_name"
+               placeholder="BambuAFE-ESP32" pattern="[a-zA-Z0-9\-]+"
+               title="Letters, numbers, and hyphens only" value="BambuAFE-ESP32">
+        <div class="hint">Used as the hostname on your network</div>
+      </div>
+
+
+      <hr class="divider">
+
+      <!-- ── Dashboard ── -->
+      <div class="section-label">Dashboard</div>
+
+      <div class="field">
+        <label for="dashboard_pass">
+          Dashboard password
+          <span class="show-pass" onclick="toggleDashPass()">Show</span>
+        </label>
+        <input type="password" id="dashboard_pass" name="dashboard_pass"
+               placeholder="Set a password for the status dashboard" value="admin">
+        <div class="hint">Used to log in to the device dashboard after setup.  The default username will be admin</div>
+      </div>
+
+      <button type="submit">Save &amp; Reboot</button>
+    </form>
+
+    <div class="footer">BambuAFE Config Portal &nbsp;·&nbsp; 192.168.4.1</div>
+  </div>
+
+  <script>
+    function toggleDashPass() {
+      const el = document.getElementById('dashboard_pass');
+      const btn = document.querySelectorAll('.show-pass')[1];
+      if (el.type === 'password') { el.type = 'text';     btn.textContent = 'Hide'; }
+      else                        { el.type = 'password'; btn.textContent = 'Show'; }
+    }
+
+    function togglePass() {
+      const el = document.getElementById('wifi_pass');
+      const btn = document.querySelector('.show-pass');
+      if (el.type === 'password') { el.type = 'text';     btn.textContent = 'Hide'; }
+      else                        { el.type = 'password'; btn.textContent = 'Show'; }
+    }
+
+    function scanNetworks() {
+      const box = document.getElementById('networks');
+      box.style.display = 'block';
+      box.innerHTML = '<div class="net-item">Scanning...</div>';
+
+      fetch('/scan')
+        .then(r => r.json())
+        .then(nets => {
+          if (!nets.length) { box.innerHTML = '<div class="net-item">No networks found</div>'; return; }
+          box.innerHTML = nets.map(n =>
+            `<div class="net-item" onclick="selectNet('${n.ssid}')">
+              <span>${n.ssid} ${n.secured ? '<span class="net-lock">🔒</span>' : ''}</span>
+              <span class="net-signal">${n.rssi} dBm</span>
+            </div>`
+          ).join('');
+        })
+        .catch(() => { box.innerHTML = '<div class="net-item">Scan failed</div>'; });
+    }
+
+    function selectNet(ssid) {
+      document.getElementById('wifi_ssid').value = ssid;
+      document.getElementById('networks').style.display = 'none';
+      document.getElementById('wifi_pass').focus();
+    }
+  </script>
+</body>
+</html>

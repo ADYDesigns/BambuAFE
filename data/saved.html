@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saved!</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      padding: 2.5rem;
+      width: 100%; max-width: 380px;
+      text-align: center;
+    }
+    .icon {
+      width: 64px; height: 64px;
+      background: #dcfce7;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 1.25rem;
+    }
+    .icon svg { width: 32px; height: 32px; stroke: #16a34a; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    h1 { font-size: 1.3rem; font-weight: 700; color: #111827; margin-bottom: 0.5rem; }
+    p  { font-size: 0.9rem; color: #6b7280; line-height: 1.6; }
+    .badge {
+      display: inline-block;
+      margin-top: 1.25rem;
+      padding: 0.4rem 0.9rem;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+    .note { margin-top: 1rem; font-size: 0.78rem; color: #9ca3af; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">
+      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <h1>Config saved!</h1>
+    <p>Your settings have been written to flash memory.</p>
+    <div class="badge">Rebooting in 2 seconds…</div>
+    <p class="note">The device will connect to your Wi-Fi network and disconnect from this AP.</p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BambuAFE Configuration</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      padding: 1.5rem 1rem 3rem;
+    }
+
+    header {
+      max-width: 640px;
+      margin: 0 auto 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .logo { display: flex; align-items: center; gap: 10px; }
+
+    .logo-icon {
+      width: 36px; height: 36px; background: #2563eb;
+      border-radius: 9px; display: flex; align-items: center; justify-content: center;
+    }
+
+    .logo-icon svg { width: 20px; height: 20px; fill: none; stroke: #fff; stroke-width: 2; }
+
+    h1 { font-size: 1.1rem; font-weight: 600; color: #111827; }
+    .tagline { font-size: 0.78rem; color: #6b7280; }
+
+    .nav-link {
+      font-size: 0.78rem; font-weight: 500;
+      color: #2563eb; text-decoration: none;
+    }
+
+    .nav-link:hover { text-decoration: underline; }
+
+    .section { max-width: 640px; margin: 0 auto 1.25rem; }
+
+    .section-title {
+      font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      color: #9ca3af; margin-bottom: 0.6rem; padding-left: 2px;
+    }
+
+    .config-card {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      padding: 1.5rem;
+    }
+
+    .printer-heading {
+      font-size: 0.8rem; font-weight: 600; color: #374151;
+      margin: 1rem 0 0.75rem; padding-bottom: 0.4rem;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .printer-heading:first-child { margin-top: 0; }
+
+    .field { margin-bottom: 0.85rem; }
+
+    .field label {
+      display: block; font-size: 0.82rem; font-weight: 500;
+      color: #374151; margin-bottom: 0.25rem;
+    }
+
+    .field input {
+      width: 100%; padding: 0.5rem 0.7rem;
+      border: 1px solid #d1d5db; border-radius: 8px;
+      font-size: 0.875rem; color: #111827; background: #f9fafb;
+      outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .field input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+      background: #fff;
+    }
+
+    .field input::placeholder { color: #9ca3af; }
+
+    .field select {
+      width: 100%; padding: 0.5rem 0.7rem;
+      border: 1px solid #d1d5db; border-radius: 8px;
+      font-size: 0.875rem; color: #111827; background: #f9fafb;
+      outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+      appearance: auto;
+    }
+
+    .field select:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+      background: #fff;
+    }
+
+    .field-row { display: flex; gap: 0.75rem; }
+    .field-row .field { flex: 1; }
+    .field-row .field-sm { width: 110px; flex-shrink: 0; }
+
+    .divider { border: none; border-top: 1px solid #e5e7eb; margin: 1.25rem 0; }
+
+    .save-btn {
+      width: 100%; padding: 0.65rem;
+      background: #2563eb; color: #fff; border: none;
+      border-radius: 8px; font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; transition: background 0.15s, transform 0.1s;
+    }
+
+    .save-btn:hover  { background: #1d4ed8; }
+    .save-btn:active { transform: scale(0.98); }
+
+    .save-status {
+      text-align: center; font-size: 0.8rem;
+      margin-top: 0.5rem; min-height: 1.2em;
+    }
+
+    .save-status.ok  { color: #16a34a; }
+    .save-status.err { color: #dc2626; }
+
+    .reset-card {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      padding: 1.5rem; border: 1px solid #fee2e2;
+    }
+
+    .reset-title { font-size: 0.9rem; font-weight: 600; color: #991b1b; margin-bottom: 0.4rem; }
+
+    .reset-desc { font-size: 0.82rem; color: #6b7280; margin-bottom: 1rem; line-height: 1.5; }
+
+    .reset-btn {
+      padding: 0.6rem 1.25rem; background: #fff; color: #dc2626;
+      border: 1.5px solid #dc2626; border-radius: 8px;
+      font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: background 0.15s;
+    }
+
+    .reset-btn:hover { background: #fef2f2; }
+
+    .reset-confirm {
+      display: none; margin-top: 0.75rem; padding: 0.75rem;
+      background: #fef2f2; border-radius: 8px;
+      font-size: 0.82rem; color: #991b1b;
+    }
+
+    .reset-confirm p { margin-bottom: 0.6rem; }
+    .confirm-btns { display: flex; gap: 0.5rem; }
+
+    .btn-confirm {
+      padding: 0.45rem 1rem; background: #dc2626; color: #fff; border: none;
+      border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+    }
+
+    .btn-cancel {
+      padding: 0.45rem 1rem; background: #fff; color: #374151;
+      border: 1px solid #d1d5db; border-radius: 6px;
+      font-size: 0.82rem; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <div>
+        <h1>Configuration</h1>
+        <div class="tagline">BambuAFE</div>
+      </div>
+    </div>
+    <a class="nav-link" href="/">← Dashboard</a>
+  </header>
+
+  <!-- ── Configuration ── -->
+  <div class="section">
+    <div class="section-title">Configuration</div>
+    <div class="config-card">
+
+      <div class="printer-heading">Bambu Cloud account</div>
+      <div style="font-size:0.78rem;color:#6b7280;margin-bottom:0.75rem;padding:0.6rem;background:#f0f2f5;border-radius:8px;">
+        The Bambu Cloud requires a User ID and Access token.  There are three ways to get this information: Sorting through cookies in your web browser, running a PowerShell script that automates the process, or running a Python script that impersonates a web browser to retrieve the information.
+        <br><br>
+        The recommended way is to have <a href="https://github.com/powershell/powershell/releases" target="_blank" style="color:#2563eb;">PowerShell 7</a> installed and <a href="/get_bambu_token.ps1" download style="color:#2563eb;font-weight:500;">Download get_bambu_token.ps1</a> but view the README for full details.  The token expires every ~3 months and will need to be renewed.
+      </div>
+      <div class="field">
+        <label for="manual-user-id">User ID <span style="font-weight:400;color:#9ca3af;">(shown as u_XXXXXXX by the script)</span></label>
+        <input type="text" id="manual-user-id" placeholder="1234567890">
+      </div>
+      <div class="field">
+        <label for="manual-token">Access token <span style="font-weight:400;color:#9ca3af;">(long eyJ… string)</span></label>
+        <input type="password" id="manual-token" placeholder="Leave blank to keep existing token">
+      </div>
+      <div class="field">
+        <label for="bambu-region">Region</label>
+        <select id="bambu-region">
+          <option value="us">Global — us.mqtt.bambulab.com</option>
+          <option value="cn">China — cn.mqtt.bambulab.com</option>
+        </select>
+      </div>
+      <div id="token-status" style="font-size:0.8rem;min-height:1.2em;margin-bottom:0.5rem;"></div>
+
+      <div class="divider"></div>
+
+      <div class="printer-heading">Printer 1</div>
+      <div class="field">
+        <label for="p1-name">Name</label>
+        <input type="text" id="p1-name" placeholder="e.g. X1C Living Room">
+      </div>
+      <div class="field">
+        <label for="p1-serial">Serial number</label>
+        <input type="text" id="p1-serial" placeholder="01S00C...">
+      </div>
+      <div class="field">
+        <label for="p1-gen">Printer generation</label>
+        <select id="p1-gen">
+          <option value="1">Gen 1 — X1C, P1S, P1P, A1, A1 Mini</option>
+          <option value="2">Gen 2 — H2C, H2S, H2D, P2S</option>
+        </select>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="printer-heading">Printer 2</div>
+      <div class="field">
+        <label for="p2-name">Name</label>
+        <input type="text" id="p2-name" placeholder="e.g. P1S Garage">
+      </div>
+      <div class="field">
+        <label for="p2-serial">Serial number</label>
+        <input type="text" id="p2-serial" placeholder="01S00C...">
+      </div>
+      <div class="field">
+        <label for="p2-gen">Printer generation</label>
+        <select id="p2-gen">
+          <option value="1">Gen 1 — X1C, P1S, P1P, A1, A1 Mini</option>
+          <option value="2">Gen 2 — H2C, H2S, H2D, P2S</option>
+        </select>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="printer-heading">Fans</div>
+      <div style="font-size:0.78rem;color:#6b7280;margin-bottom:0.75rem;padding:0.6rem;background:#fef9c3;border-radius:8px;">
+        Note: Minimum fan speed should either be 0% or greater than 10% due to how the PWM outputs work.
+      </div>
+      <div class="field">
+        <label for="fan-printing">Fan speed when printers are printing (%)</label>
+        <input type="number" id="fan-printing" placeholder="10" min="0" max="100">
+      </div>
+      <div class="field">
+        <label for="fan-exhausting">Fan speed when a printer is exhausting (%)</label>
+        <input type="number" id="fan-exhausting" placeholder="50" min="0" max="100">
+      </div>
+      <div class="field">
+        <label for="fan-both-exhausting">Fan speed when both printers are exhausting (%)</label>
+        <input type="number" id="fan-both-exhausting" placeholder="100" min="0" max="100">
+      </div>
+
+      <div class="divider"></div>
+
+      <button class="save-btn" onclick="saveConfig()">Save configuration</button>
+      <div class="save-status" id="save-status"></div>
+    </div>
+  </div>
+
+  <!-- ── Reset ── -->
+  <div class="section">
+    <div class="section-title">Advanced</div>
+    <div class="reset-card" style="margin-bottom:0.75rem;border-color:#e5e7eb;">
+      <div class="reset-title" style="color:#374151;">Reboot device</div>
+      <div class="reset-desc">
+        Restarts the controller without erasing any settings.
+      </div>
+      <button class="reset-btn" style="color:#2563eb;border-color:#2563eb;" onclick="doReboot()">Reboot device</button>
+      <div id="reboot-status" style="font-size:0.8rem;margin-top:0.5rem;min-height:1.2em;"></div>
+    </div>
+    <div class="reset-card">
+      <div class="reset-title">Reset controller configuration</div>
+      <div class="reset-desc">
+        This will erase all saved settings — Wi-Fi credentials, printer details, and passwords —
+        and reboot the device into first-time setup mode.
+      </div>
+      <button class="reset-btn" onclick="showResetConfirm()">Reset configuration…</button>
+      <div class="reset-confirm" id="reset-confirm">
+        <p>Are you sure? The device will reboot and all settings will be lost.</p>
+        <div class="confirm-btns">
+          <button class="btn-confirm" onclick="doReset()">Yes, reset now</button>
+          <button class="btn-cancel"  onclick="hideResetConfirm()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function fetchConfig() {
+      fetch('/config')
+        .then(r => r.json())
+        .then(d => {
+          if (d.has_token) {
+            document.getElementById('token-status').textContent = '✓ Token is saved';
+            document.getElementById('token-status').style.color = '#16a34a';
+          }
+          document.getElementById('manual-user-id').value        = d.bambu_user_id    || '';
+          document.getElementById('bambu-region').value           = d.bambu_region     || 'us';
+          document.getElementById('p1-name').value               = d.printer1_name    || '';
+          document.getElementById('p1-serial').value             = d.printer1_serial  || '';
+          document.getElementById('p1-gen').value                = d.printer1_gen     ?? 1;
+          document.getElementById('p2-name').value               = d.printer2_name    || '';
+          document.getElementById('p2-serial').value             = d.printer2_serial  || '';
+          document.getElementById('p2-gen').value                = d.printer2_gen     ?? 1;
+          document.getElementById('fan-printing').value          = d.fan_speed_printing     ?? 10;
+          document.getElementById('fan-exhausting').value        = d.fan_speed_exhausting   ?? 50;
+          document.getElementById('fan-both-exhausting').value   = d.fan_speed_both_exhausting ?? 100;
+        });
+    }
+
+    function validateFanSpeed(id) {
+      const el = document.getElementById(id);
+      let val = parseInt(el.value) || 0;
+      if (val !== 0 && val < 10) val = 10;
+      if (val > 100) val = 100;
+      el.value = val;
+      return val;
+    }
+
+    function saveConfig() {
+      const status = document.getElementById('save-status');
+      status.textContent = 'Saving…';
+      status.className = 'save-status';
+      const body = new URLSearchParams({
+        bambu_user_id:             document.getElementById('manual-user-id').value.trim().replace(/^u_/, ''),
+        bambu_token:               document.getElementById('manual-token').value.trim(),
+        bambu_region:              document.getElementById('bambu-region').value,
+        printer1_name:             document.getElementById('p1-name').value,
+        printer1_serial:           document.getElementById('p1-serial').value,
+        printer1_gen:              document.getElementById('p1-gen').value,
+        printer2_name:             document.getElementById('p2-name').value,
+        printer2_serial:           document.getElementById('p2-serial').value,
+        printer2_gen:              document.getElementById('p2-gen').value,
+        fan_speed_printing:        validateFanSpeed('fan-printing'),
+        fan_speed_exhausting:      validateFanSpeed('fan-exhausting'),
+        fan_speed_both_exhausting: validateFanSpeed('fan-both-exhausting'),
+      });
+      fetch('/config', { method: 'POST', body })
+        .then(r => r.json())
+        .then(d => {
+          status.textContent = d.ok ? '✓ Saved successfully' : '✗ Save failed: ' + (d.error || 'unknown error');
+          status.className   = 'save-status ' + (d.ok ? 'ok' : 'err');
+        })
+        .catch(() => { status.textContent = '✗ Request failed'; status.className = 'save-status err'; });
+    }
+
+    function doReboot() {
+      const st = document.getElementById('reboot-status');
+      st.textContent = 'Rebooting…';
+      st.style.color = '#2563eb';
+      fetch('/reboot', { method: 'POST' })
+        .then(() => {
+          st.textContent = 'Rebooted — reconnecting in 10 seconds…';
+          setTimeout(() => location.reload(), 10000);
+        })
+        .catch(() => {
+          st.textContent = 'Rebooted — reconnecting in 10 seconds…';
+          setTimeout(() => location.reload(), 10000);
+        });
+    }
+
+    function showResetConfirm() { document.getElementById('reset-confirm').style.display = 'block'; }
+    function hideResetConfirm() { document.getElementById('reset-confirm').style.display = 'none'; }
+
+    function doReset() {
+      fetch('/reset', { method: 'POST' })
+        .then(() => {
+          document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#6b7280;font-size:0.9rem;">Resetting… reconnect to BambuAFE-Setup to reconfigure.</div>';
+        })
+        .catch(() => {
+          document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#6b7280;font-size:0.9rem;">Resetting… reconnect to BambuAFE-Setup to reconfigure.</div>';
+        });
+    }
+
+    fetchConfig();
+  </script>
+
+</body>
+</html>

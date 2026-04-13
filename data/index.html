@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BambuAFE Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      padding: 1.5rem 1rem 3rem;
+    }
+
+    header {
+      max-width: 640px;
+      margin: 0 auto 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo { display: flex; align-items: center; gap: 10px; }
+
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: #2563eb;
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .logo-icon svg { width: 20px; height: 20px; fill: none; stroke: #fff; stroke-width: 2; }
+
+    h1 { font-size: 1.1rem; font-weight: 600; color: #111827; }
+    .tagline { font-size: 0.78rem; color: #6b7280; }
+
+    .header-right { display: flex; align-items: center; gap: 1rem; }
+
+    .badge-online {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.78rem; font-weight: 500; color: #16a34a;
+    }
+
+    .dot {
+      width: 8px; height: 8px; background: #16a34a; border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    .nav-link {
+      font-size: 0.78rem; font-weight: 500;
+      color: #2563eb; text-decoration: none;
+    }
+
+    .nav-link:hover { text-decoration: underline; }
+
+    .section { max-width: 640px; margin: 0 auto 1.25rem; }
+
+    .section-title {
+      font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      color: #9ca3af; margin-bottom: 0.6rem; padding-left: 2px;
+    }
+
+    .grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+    }
+
+    @media (max-width: 480px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      padding: 1.25rem 1.5rem;
+    }
+
+    .card.wide { grid-column: 1 / -1; }
+
+    .card-label {
+      font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      color: #9ca3af; margin-bottom: 0.4rem;
+    }
+
+    .card-value { font-size: 1.6rem; font-weight: 700; color: #111827; line-height: 1.2; }
+    .card-unit  { font-size: 0.85rem; font-weight: 400; color: #6b7280; margin-left: 4px; }
+    .card-sub   { font-size: 0.8rem; color: #6b7280; margin-top: 0.2rem; }
+
+    .info-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.5rem 0; border-bottom: 1px solid #f3f4f6; font-size: 0.875rem;
+    }
+
+    .info-row:last-child { border-bottom: none; }
+    .info-key   { color: #6b7280; }
+    .info-value { color: #111827; font-weight: 500; font-family: monospace; }
+
+    .refresh-btn {
+      display: block; max-width: 640px; margin: 0 auto 1.5rem;
+      padding: 0.6rem; background: none; border: 1px solid #d1d5db;
+      border-radius: 8px; font-size: 0.85rem; color: #374151;
+      cursor: pointer; text-align: center; transition: background 0.15s; width: 100%;
+    }
+
+    .refresh-btn:hover { background: #f9fafb; }
+
+    .last-updated {
+      text-align: center; font-size: 0.72rem;
+      color: #9ca3af; margin-top: -1rem; margin-bottom: 1.5rem;
+    }
+
+    .printer-card {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      padding: 1.25rem 1.5rem; margin-bottom: 1rem;
+    }
+
+    .printer-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .printer-title { font-size: 0.95rem; font-weight: 600; color: #111827; }
+
+    .state-badge {
+      font-size: 0.72rem; font-weight: 600; padding: 0.2rem 0.6rem;
+      border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em;
+    }
+
+    .state-RUNNING  { background: #dcfce7; color: #15803d; }
+    .state-IDLE     { background: #f3f4f6; color: #6b7280; }
+    .state-FINISH   { background: #dbeafe; color: #1d4ed8; }
+    .state-PAUSE    { background: #fef9c3; color: #854d0e; }
+    .state-FAILED   { background: #fee2e2; color: #991b1b; }
+    .state-PREPARE  { background: #ffedd5; color: #c2410c; }
+    .state-offline  { background: #f3f4f6; color: #9ca3af; }
+
+    .progress-bar-wrap {
+      background: #f3f4f6; border-radius: 999px;
+      height: 6px; margin-bottom: 0.75rem; overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%; border-radius: 999px;
+      background: #2563eb; transition: width 0.5s ease;
+    }
+
+    .printer-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;
+    }
+
+    .stat { text-align: center; }
+    .stat-val { font-size: 1rem; font-weight: 700; color: #111827; }
+    .stat-lbl { font-size: 0.68rem; color: #9ca3af; margin-top: 1px; }
+
+    .exhaust-indicator {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.72rem; color: #d97706; font-weight: 500; margin-top: 0.6rem;
+    }
+
+    .exhaust-dot {
+      width: 6px; height: 6px; background: #d97706;
+      border-radius: 50%; animation: pulse 1s ease-in-out infinite;
+    }
+
+    .fan-bar-wrap {
+      display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem;
+    }
+
+    .fan-bar-track {
+      flex: 1; background: #f3f4f6; border-radius: 999px; height: 6px; overflow: hidden;
+    }
+
+    .fan-bar-fill {
+      height: 100%; border-radius: 999px;
+      background: #2563eb; transition: width 0.5s ease;
+    }
+
+    .fan-pct-label { font-size: 0.8rem; font-weight: 600; color: #374151; min-width: 36px; text-align: right; }
+
+    .printer-offline {
+      text-align: center; padding: 1.5rem 0;
+      color: #9ca3af; font-size: 0.875rem;
+    }
+
+    .not-configured {
+      text-align: center; padding: 1rem 0;
+      color: #d1d5db; font-size: 0.82rem; font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      </div>
+      <div>
+        <h1 id="device-name">Loading…</h1>
+        <div class="tagline">Status Dashboard</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <a class="nav-link" href="/config.html">⚙ Configuration</a>
+      <div class="badge-online"><div class="dot"></div> Online</div>
+    </div>
+  </header>
+
+  <!-- ── Printer Status ── -->
+  <div class="section">
+    <div class="section-title">Printer Status</div>
+    <div class="printer-card" id="p1-card">
+      <div class="printer-offline">Waiting for printer 1 data…</div>
+    </div>
+    <div class="printer-card" id="p2-card">
+      <div class="printer-offline">Waiting for printer 2 data…</div>
+    </div>
+  </div>
+
+  <p style="font-size:0.72rem;color:#9ca3af;font-style:italic;text-align:center;margin:0.25rem auto 0.75rem;max-width:640px;padding:0 1rem;">
+    Some printer information is only sent when a value changes and may reflect the last known reading.
+  </p>
+
+  <!-- ── Automatic Fume Extraction ── -->
+  <div class="section">
+    <div class="section-title">Automatic Fume Extraction</div>
+    <div class="card wide">
+      <div class="card-label">Filter fan speed</div>
+      <div class="fan-bar-wrap">
+        <div class="fan-bar-track"><div class="fan-bar-fill" id="fan-bar" style="width:0%"></div></div>
+        <div class="fan-pct-label" id="fan-pct-label">0%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ESP32 Status ── -->
+  <div class="section">
+    <div class="section-title">ESP32 Status</div>
+    <div class="grid">
+      <div class="card">
+        <div class="card-label">Uptime</div>
+        <div class="card-value" id="uptime-value">—</div>
+        <div class="card-sub"   id="uptime-raw"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">Free heap</div>
+        <div class="card-value" id="heap-value">—<span class="card-unit">KB</span></div>
+        <div class="card-sub"   id="heap-sub"></div>
+      </div>
+      <div class="card wide">
+        <div class="card-label">Device info</div>
+        <div class="info-row">
+          <span class="info-key">Device name</span>
+          <span class="info-value" id="info-name">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Firmware version</span>
+          <span class="info-value" id="info-version">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">IP address</span>
+          <span class="info-value" id="info-ip">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Bambu Cloud</span>
+          <span class="info-value" id="info-cloud">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="refresh-btn" onclick="fetchAll()">↻ Refresh</button>
+  <div class="last-updated" id="last-updated"></div>
+
+  <script>
+    function fmtUptime(s) {
+      const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600),
+            m = Math.floor((s % 3600) / 60), sec = s % 60;
+      if (d > 0) return { main: `${d}d ${h}h`,   sub: `${h}h ${m}m ${sec}s total` };
+      if (h > 0) return { main: `${h}h ${m}m`,   sub: `${m}m ${sec}s` };
+      if (m > 0) return { main: `${m}m ${sec}s`, sub: '' };
+      return { main: `${sec}s`, sub: '' };
+    }
+
+    function fetchStatus() {
+      fetch('/status')
+        .then(r => r.json())
+        .then(d => {
+          const up = fmtUptime(d.uptime_s);
+          document.getElementById('uptime-value').textContent = up.main;
+          document.getElementById('uptime-raw').textContent   = up.sub;
+          document.getElementById('heap-value').innerHTML     = Math.round(d.free_heap / 1024) + '<span class="card-unit">KB</span>';
+          document.getElementById('heap-sub').textContent     = d.free_heap.toLocaleString() + ' bytes';
+          document.getElementById('info-name').textContent    = d.device_name;
+          document.getElementById('info-version').textContent = d.firmware_version || '—';
+          document.getElementById('info-ip').textContent      = d.ip;
+          document.getElementById('info-cloud').textContent   = d.cloud_connected ? '✓ Connected' : '✗ Disconnected';
+          document.getElementById('device-name').textContent  = d.device_name;
+          document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+        })
+        .catch(() => {
+          document.getElementById('last-updated').textContent = 'Update failed — retrying...';
+        });
+    }
+
+    function renderPrinterCard(el, p) {
+      if (!p) { el.innerHTML = '<div class="not-configured">Not configured</div>'; return; }
+      if (!p.connected) {
+        el.innerHTML = `
+          <div class="printer-header">
+            <div class="printer-title">${p.name || 'Printer'}</div>
+            <span class="state-badge state-offline">Offline</span>
+          </div>
+          <div class="printer-offline">No connection to printer</div>`;
+        return;
+      }
+      const pct    = p.progress || 0;
+      const remain = p.remaining_min > 0
+        ? (p.remaining_min >= 60 ? `${Math.floor(p.remaining_min/60)}h ${p.remaining_min%60}m` : `${p.remaining_min}m`)
+        : '—';
+      el.innerHTML = `
+        <div class="printer-header">
+          <div class="printer-title">${p.name || 'Printer'}</div>
+          <span class="state-badge state-${p.gcode_state}">${p.gcode_state}</span>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="printer-stats">
+          <div class="stat"><div class="stat-val">${pct}%</div><div class="stat-lbl">Progress</div></div>
+          <div class="stat"><div class="stat-val">${p.nozzle_temp}°C</div><div class="stat-lbl">Nozzle</div></div>
+          <div class="stat"><div class="stat-val">${p.bed_temp}°C</div><div class="stat-lbl">Bed</div></div>
+          <div class="stat"><div class="stat-val">${remain}</div><div class="stat-lbl">Remaining</div></div>
+          <div class="stat"><div class="stat-val">${p.exhaust_pct}%</div><div class="stat-lbl">Exhaust</div></div>
+          <div class="stat"><div class="stat-val">${p.chamber_temp}°C</div><div class="stat-lbl">Chamber</div></div>
+        </div>
+        ${p.exhausting ? '<div class="exhaust-indicator"><div class="exhaust-dot"></div> Exhausting</div>' : ''}`;
+    }
+
+    function fetchPrinterStatus() {
+      fetch('/printer-status')
+        .then(r => r.json())
+        .then(d => {
+          renderPrinterCard(document.getElementById('p1-card'), d.printer1);
+          renderPrinterCard(document.getElementById('p2-card'), d.printer2);
+          const pct = d.fan_pct || 0;
+          document.getElementById('fan-bar').style.width       = pct + '%';
+          document.getElementById('fan-pct-label').textContent = pct + '%';
+        })
+        .catch(() => {});
+    }
+
+    function fetchAll() { fetchStatus(); fetchPrinterStatus(); }
+
+    fetchAll();
+    setInterval(fetchStatus, 10000);
+    setInterval(fetchPrinterStatus, 5000);
+  </script>
+
+</body>
+</html>
