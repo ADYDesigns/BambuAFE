@@ -67,7 +67,7 @@ struct Config {
   char printer2_serial[32]= "";
   int  printer2_gen       = 1;
   int  fan_speed_printing        = 10;
-  int  fan_speed_exhausting      = 50;
+  int  fan_speed_one_exhausting  = 50;
   int  fan_speed_both_exhausting = 100;
 };
 
@@ -118,15 +118,33 @@ void setFanSpeed(int pct) {
 }
 
 void updateFanSpeed() {
-  bool p1printing  = p1state.connected && (strcmp(p1state.gcode_state, "RUNNING") == 0);
-  bool p2printing  = p2state.connected && (strcmp(p2state.gcode_state, "RUNNING") == 0);
+  bool p1printing   = p1state.connected && (strcmp(p1state.gcode_state, "RUNNING") == 0);
+  bool p2printing   = p2state.connected && (strcmp(p2state.gcode_state, "RUNNING") == 0);
   bool p1exhausting = p1state.connected && (p1state.exhaust_fan_speed > 1);
   bool p2exhausting = p2state.connected && (p2state.exhaust_fan_speed > 1);
 
-  if (p1exhausting && p2exhausting)    setFanSpeed(cfg.fan_speed_both_exhausting);
-  else if (p1exhausting || p2exhausting) setFanSpeed(cfg.fan_speed_exhausting);
-  else if (p1printing  || p2printing)  setFanSpeed(cfg.fan_speed_printing);
-  else                                  setFanSpeed(0);
+  // Normalise exhaust to 0-100% for each printer
+  int p1pct = (p1state.gen == 1)
+    ? (constrain(p1state.exhaust_fan_speed, 0, 15) * 100) / 15
+    : constrain(p1state.exhaust_fan_speed, 0, 100);
+  int p2pct = (p2state.gen == 1)
+    ? (constrain(p2state.exhaust_fan_speed, 0, 15) * 100) / 15
+    : constrain(p2state.exhaust_fan_speed, 0, 100);
+
+  int targetPct = 0;
+
+  if (p1exhausting && p2exhausting) {
+    float avgExhaust = (p1pct + p2pct) / 2.0f;
+    targetPct = (int)(cfg.fan_speed_printing + (avgExhaust / 100.0f) * (cfg.fan_speed_both_exhausting - cfg.fan_speed_printing));
+  } else if (p1exhausting) {
+    targetPct = (int)(cfg.fan_speed_printing + (p1pct / 100.0f) * (cfg.fan_speed_one_exhausting - cfg.fan_speed_printing));
+  } else if (p2exhausting) {
+    targetPct = (int)(cfg.fan_speed_printing + (p2pct / 100.0f) * (cfg.fan_speed_one_exhausting - cfg.fan_speed_printing));
+  } else if (p1printing || p2printing) {
+    targetPct = cfg.fan_speed_printing;
+  }
+
+  setFanSpeed(constrain(targetPct, 0, 100));
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -466,7 +484,7 @@ bool loadConfig() {
   strlcpy(cfg.printer2_serial, doc["printer2_serial"] | "",               sizeof(cfg.printer2_serial));
   cfg.printer2_gen              = doc["printer2_gen"]              | 1;
   cfg.fan_speed_printing        = doc["fan_speed_printing"]        | 10;
-  cfg.fan_speed_exhausting      = doc["fan_speed_exhausting"]      | 50;
+  cfg.fan_speed_one_exhausting      = doc["fan_speed_one_exhausting"]      | 50;
   cfg.fan_speed_both_exhausting = doc["fan_speed_both_exhausting"] | 100;
 
   return true;
@@ -490,7 +508,7 @@ bool saveConfig() {
   doc["printer2_serial"]         = cfg.printer2_serial;
   doc["printer2_gen"]            = cfg.printer2_gen;
   doc["fan_speed_printing"]      = cfg.fan_speed_printing;
-  doc["fan_speed_exhausting"]    = cfg.fan_speed_exhausting;
+  doc["fan_speed_one_exhausting"]    = cfg.fan_speed_one_exhausting;
   doc["fan_speed_both_exhausting"] = cfg.fan_speed_both_exhausting;
   serializeJsonPretty(doc, f);
   f.close();
@@ -634,7 +652,7 @@ void handleConfigGet() {
   doc["printer2_serial"]         = cfg.printer2_serial;
   doc["printer2_gen"]            = cfg.printer2_gen;
   doc["fan_speed_printing"]      = cfg.fan_speed_printing;
-  doc["fan_speed_exhausting"]    = cfg.fan_speed_exhausting;
+  doc["fan_speed_one_exhausting"]    = cfg.fan_speed_one_exhausting;
   doc["fan_speed_both_exhausting"] = cfg.fan_speed_both_exhausting;
   String json; serializeJson(doc, json);
   server.send(200, "application/json", json);
@@ -659,9 +677,9 @@ void handleConfigPost() {
     int v = server.arg("fan_speed_printing").toInt();
     cfg.fan_speed_printing = (v == 0) ? 0 : constrain(v, 10, 100);
   }
-  if (server.hasArg("fan_speed_exhausting")) {
-    int v = server.arg("fan_speed_exhausting").toInt();
-    cfg.fan_speed_exhausting = (v == 0) ? 0 : constrain(v, 10, 100);
+  if (server.hasArg("fan_speed_one_exhausting")) {
+    int v = server.arg("fan_speed_one_exhausting").toInt();
+    cfg.fan_speed_one_exhausting = (v == 0) ? 0 : constrain(v, 10, 100);
   }
   if (server.hasArg("fan_speed_both_exhausting")) {
     int v = server.arg("fan_speed_both_exhausting").toInt();
