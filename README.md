@@ -37,7 +37,7 @@ This assembly guide is assuming you have everything from the bill of materials a
 3. Cut the pre-filter to size and slide it into the small channel nearest the back of the box.
 4. Put the media bag into the large channel and fill with your active carbon & zeolite mix.
 5. ⚠ Safety Note: Make sure to print out a mesh cap for the exhaust so you don't accidentally stick your fingers in the fan blades — End Cap with Gyroid Mesh (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2606325).
-6. If you are hooking up to one printer also print out a cap for the second intake — Solid End Cap (No Airflow) (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated?profiled=2938064#profileId-2938064).
+6. If you are hooking up to only one printer also print out a cap for the second intake — Solid End Cap (No Airflow) (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated?profiled=2938064#profileId-2938064).  Same if you are using one fan.
 
 # Installing the Software and Flashing the Controller
 For the programming side I will be using the free Microsoft Visual Studio Code program available at https://code.visualstudio.com/ .  You can also use the Arduino IDE if you are familiar with that but these instructions will use VS Code.
