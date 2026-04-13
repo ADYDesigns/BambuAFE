@@ -34,10 +34,9 @@ This assembly guide is assuming you have everything from the bill of materials a
    2. Wire the 12v to 5v converter to the power connectors.  In general Red is Positive (+) and Black is Negative (-) — check the labeling on your converter to confirm.
    3. Wire the fan(s) power wires to the power connectors.  Depending on the fans you bought the connector should be labeled.  Pin 1 should be ground (to N or - on the power connector), Pin 2 should be +12v (to P or + on the power connector), Pin 3 is not used, and Pin 4 is our PWM.  Verify this information on the packaging or the manufacturer's website.
    4. Wire the fan(s) PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO16 and fan 2 uses GPIO17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter when using two fans as they both come on at the same time.
-3. Slide the bottom cover into place leaving the top cover off to access the ESP32 for programming.
-4. Cut the pre-filter to size and slide it into the small channel nearest the back of the box.
-5. Put the media bag into the large channel and fill with your active carbon & zeolite mix.
-6. ⚠ Safety Note: Make sure to print out a mesh cap for the exhaust so you don't accidentally stick your fingers in the fan blades — End Cap with Gyroid Mesh (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2606325).
+3. Cut the pre-filter to size and slide it into the small channel nearest the back of the box.
+4. Put the media bag into the large channel and fill with your active carbon & zeolite mix.
+5. ⚠ Safety Note: Make sure to print out a mesh cap for the exhaust so you don't accidentally stick your fingers in the fan blades — End Cap with Gyroid Mesh (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2606325).
 
 # Installing the Software and Flashing the Controller
 For the programming side I will be using the free Microsoft Visual Studio Code program available at https://code.visualstudio.com/ .  You can also use the Arduino IDE if you are familiar with that but these instructions will use VS Code.
