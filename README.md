@@ -54,10 +54,11 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
 5. PlatformIO will configure the project and download any supporting files it needs.  The first time you do this may take a few minutes.
 6. Plug your ESP32 into your computer using a USB cable.
 7. Upload the web interface files by clicking on the PlatformIO icon indicated by an alien head on the left sidebar then General -> Upload Filesystem Image.  This uploads the web pages (dashboard, setup form, etc.) that run on the controller and must be done before flashing the firmware.  Make sure the ESP32 is connected and recognised by your computer before doing this — check Device Manager if you are unsure.
+   * By default Visual Code will try to auto detect the ESP32.  If you have other serial devices plugged in this may fail.  At the bottom of the VS Code screen you can click the power plug icon that says "Auto" next to it and select the ESP32 directly.
    * If the upload fails you may have to put the ESP32 into boot mode.  Unplug the power, wait a few seconds, then while holding the boot button down plug the power back in.  Count to at least 3 then let go of the boot button and retry the upload.
-8. Flash the firmware by clicking on the PlatformIO icon indicated by an alien head on the left sidebar then General -> Upload.  You can also press CTRL+ALT+U as a shortcut though this may not work on all keyboards or systems.
+9. Flash the firmware by clicking on the PlatformIO icon indicated by an alien head on the left sidebar then General -> Upload.  You can also press CTRL+ALT+U as a shortcut though this may not work on all keyboards or systems.
    * After flashing, open the Serial Monitor (PlatformIO -> Monitor) and you will see the controller's IP address printed when it connects to your WiFi — this is handy for finding it on your network.
-9. Once flashing is complete and you can see the IP address in the Serial Monitor, the BambuAFE-Setup WiFi network will no longer be visible.  The controller should be working correctly and you can put the top cover on the box.
+10. Once flashing is complete and you can see the IP address in the Serial Monitor, the BambuAFE-Setup WiFi network will no longer be visible.  The controller should be working correctly and you can put the top cover on the box.
 
 # Initial Setup of the Controller
 1. By default the ESP32 will broadcast a wireless network called 'BambuAFE-Setup'.  Look for and connect to this WiFi network.
