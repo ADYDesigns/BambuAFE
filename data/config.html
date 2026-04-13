@@ -248,15 +248,15 @@
         Note: Minimum fan speed should either be 0% or greater than 10% due to how the PWM outputs work.
       </div>
       <div class="field">
-        <label for="fan-printing">Fan speed when printers are printing (%)</label>
+        <label for="fan-printing">Minimum fan speed when printers are printing (%)</label>
         <input type="number" id="fan-printing" placeholder="10" min="0" max="100">
       </div>
       <div class="field">
-        <label for="fan-exhausting">Fan speed when a printer is exhausting (%)</label>
+        <label for="fan-exhausting">Maximum fan speed when one printer is exhausting (%)</label>
         <input type="number" id="fan-exhausting" placeholder="50" min="0" max="100">
       </div>
       <div class="field">
-        <label for="fan-both-exhausting">Fan speed when both printers are exhausting (%)</label>
+        <label for="fan-both-exhausting">Maximum fan speed when both printers are exhausting (%)</label>
         <input type="number" id="fan-both-exhausting" placeholder="100" min="0" max="100">
       </div>
 
@@ -313,7 +313,7 @@
           document.getElementById('p2-serial').value             = d.printer2_serial  || '';
           document.getElementById('p2-gen').value                = d.printer2_gen     ?? 1;
           document.getElementById('fan-printing').value          = d.fan_speed_printing     ?? 10;
-          document.getElementById('fan-exhausting').value        = d.fan_speed_exhausting   ?? 50;
+          document.getElementById('fan-exhausting').value        = d.fan_speed_one_exhausting   ?? 50;
           document.getElementById('fan-both-exhausting').value   = d.fan_speed_both_exhausting ?? 100;
         });
     }
@@ -342,7 +342,7 @@
         printer2_serial:           document.getElementById('p2-serial').value,
         printer2_gen:              document.getElementById('p2-gen').value,
         fan_speed_printing:        validateFanSpeed('fan-printing'),
-        fan_speed_exhausting:      validateFanSpeed('fan-exhausting'),
+        fan_speed_one_exhausting:      validateFanSpeed('fan-exhausting'),
         fan_speed_both_exhausting: validateFanSpeed('fan-both-exhausting'),
       });
       fetch('/config', { method: 'POST', body })
