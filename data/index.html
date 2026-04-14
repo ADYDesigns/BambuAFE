@@ -378,8 +378,13 @@
       fetch('/runtime')
         .then(r => r.json())
         .then(d => {
-          document.getElementById('runtime-display').textContent =
-            d.hours + 'h ' + String(d.minutes).padStart(2, '0') + 'm';
+          const days    = Math.floor(d.total_minutes / 1440);
+          const hours   = Math.floor((d.total_minutes % 1440) / 60);
+          const minutes = d.total_minutes % 60;
+          let display = '';
+          if (days > 0)  display += days + 'd ';
+          display += hours + 'h ' + String(minutes).padStart(2, '0') + 'm';
+          document.getElementById('runtime-display').textContent = display;
         })
         .catch(() => {});
     }
