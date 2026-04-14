@@ -13,6 +13,8 @@
  *   - Connects to Bambu Cloud MQTT broker using stored token and configured region
  *   - Subscribes to both printer report topics
  *   - Parses print state and exhaust fan status to drive a shared PWM fan
+ *   - Scales fan speed based on printer exhaust percentage
+ *   - Tracks and saves fan runtime to /runtime.json every 10 minutes
  *   - Serves a password-protected status dashboard at / (index.html)
  *
  * To reset config: hold BOOT button (GPIO 0) for 3 seconds on startup
@@ -97,7 +99,7 @@ int currentFanPct = 0;
 unsigned long runtimeMinutes    = 0;   // total minutes fan has run above 5%
 unsigned long lastRuntimeSave   = 0;   // millis of last save to LittleFS
 unsigned long lastRuntimeTick   = 0;   // millis of last 1-second tick
-unsigned long runtimeSecondAcc  = 0;   // accumulated seconds within current minute
+unsigned long runtimeSecondAcc  = 0;   // accumulated milliseconds toward the next minute
 
 #define RUNTIME_FILE       "/runtime.json"
 #define RUNTIME_SAVE_MS    600000      // save every 10 minutes
@@ -156,14 +158,9 @@ void updateFanSpeed() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  Bambu Cloud authentication — token is entered manually in config
-//  To get your token and uid:
-//  1. Log in to https://bambulab.com in a browser
-//  2. Open DevTools (F12) → Application → Cookies → bambulab.com
-//  3. Copy the value of "token" → paste as Bambu Token in config
-//  4. Visit https://api.bambulab.com/v1/iot-service/api/user/bind in
-//     the same browser (while logged in) and copy your uid from the JSON
-//  Token expires after ~3 months and must be updated manually
+//  Bambu Cloud authentication — token is configured via the web interface
+//  Use the PowerShell script or manual cookie method described in the README
+//  Token expires after ~3 months and must be updated via the config page
 // ══════════════════════════════════════════════════════════════════════════
 
 bool hasValidToken() {
@@ -280,9 +277,7 @@ void parseGen2Payload(JsonObject& print, PrinterState& state) {
     }
   }
   // info array: id=0 (right/inactive), id=1 (left/active)
-  // temp = current nozzle temp (integer degrees)
-  // htar = target temp, hnow = current heater
-  // stat = extruder status flags
+  // temp = nozzle temp, packed as raw / 65536 = °C for large values
   JsonArray extruderInfo = print["device"]["extruder"]["info"];
   if (!extruderInfo.isNull()) {
     for (JsonObject ext : extruderInfo) {
@@ -531,7 +526,13 @@ void deleteConfig() {
 //  Runtime tracking helpers
 // ══════════════════════════════════════════════════════════════════════════
 
+void saveRuntime();  // forward declaration
+
 void loadRuntime() {
+  if (!LittleFS.exists(RUNTIME_FILE)) {
+    saveRuntime();  // create file with default value on first boot
+    return;
+  }
   File f = LittleFS.open(RUNTIME_FILE, "r");
   if (!f) return;
   JsonDocument doc;
@@ -540,13 +541,14 @@ void loadRuntime() {
 }
 
 void saveRuntime() {
-  File f = LittleFS.open(RUNTIME_FILE, "w");
-  if (!f) return;
+  File f = LittleFS.open(RUNTIME_FILE, "w", true);  // true = create if not exists
+  if (!f) { Serial.println("[Runtime] Failed to open runtime.json for writing"); return; }
   JsonDocument doc;
   doc["runtime_minutes"] = runtimeMinutes;
   serializeJson(doc, f);
   f.close();
   lastRuntimeSave = millis();
+  Serial.println("[Runtime] Saved.");
 }
 
 void resetRuntime() {
@@ -610,9 +612,8 @@ void startConfigPortal() {
   });
   server.onNotFound([]() { server.sendHeader("Location", "/"); server.send(302); });
   server.begin();
-  pinMode(2, OUTPUT);
   Serial.println("[Portal] Waiting for configuration...");
-  while (true) { server.handleClient(); digitalWrite(2, !digitalRead(2)); delay(200); }
+  while (true) { server.handleClient(); delay(200); }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -711,15 +712,15 @@ void handleConfigPost() {
   if (server.hasArg("printer2_gen"))    cfg.printer2_gen = server.arg("printer2_gen").toInt();
   if (server.hasArg("fan_speed_printing")) {
     int v = server.arg("fan_speed_printing").toInt();
-    cfg.fan_speed_printing = (v == 0) ? 0 : constrain(v, 10, 100);
+    cfg.fan_speed_printing = (v == 0) ? 0 : constrain(v, 8, 100);
   }
   if (server.hasArg("fan_speed_one_exhausting")) {
     int v = server.arg("fan_speed_one_exhausting").toInt();
-    cfg.fan_speed_one_exhausting = (v == 0) ? 0 : constrain(v, 10, 100);
+    cfg.fan_speed_one_exhausting = (v == 0) ? 0 : constrain(v, 8, 100);
   }
   if (server.hasArg("fan_speed_both_exhausting")) {
     int v = server.arg("fan_speed_both_exhausting").toInt();
-    cfg.fan_speed_both_exhausting = (v == 0) ? 0 : constrain(v, 10, 100);
+    cfg.fan_speed_both_exhausting = (v == 0) ? 0 : constrain(v, 8, 100);
   }
 
   if (saveConfig()) {
@@ -873,7 +874,6 @@ void setup() {
   initMqtt();
   loadRuntime();
 
-  pinMode(2, OUTPUT);
   Serial.printf("[Boot] Running as: %s\n", cfg.device_name);
 }
 
@@ -903,6 +903,4 @@ void loop() {
   server.handleClient();
   loopMqtt();
   loopRuntime();
-  static unsigned long lastBlink = 0;
-  if (millis() - lastBlink >= 1000) { lastBlink = millis(); digitalWrite(2, !digitalRead(2)); }
 }
