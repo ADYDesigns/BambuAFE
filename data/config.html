@@ -245,7 +245,7 @@
 
       <div class="printer-heading">Fans</div>
       <div style="font-size:0.78rem;color:#6b7280;margin-bottom:0.75rem;padding:0.6rem;background:#fef9c3;border-radius:8px;">
-        Note: Minimum fan speed should either be 0% or greater than 10% due to how the PWM outputs work.
+        Note: Minimum fan speed should either be 0% or greater than 8% due to the minimum PWM signal required on the fans.
       </div>
       <div class="field">
         <label for="fan-printing">Minimum fan speed when printers are printing (%)</label>
@@ -321,7 +321,7 @@
     function validateFanSpeed(id) {
       const el = document.getElementById(id);
       let val = parseInt(el.value) || 0;
-      if (val !== 0 && val < 10) val = 10;
+      if (val !== 0 && val < 8) val = 8;
       if (val > 100) val = 100;
       el.value = val;
       return val;
