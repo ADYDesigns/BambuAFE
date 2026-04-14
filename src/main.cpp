@@ -135,10 +135,10 @@ void updateFanSpeed() {
 
   // Normalise exhaust to 0-100% for each printer
   int p1pct = (p1state.gen == 1)
-    ? (constrain(p1state.exhaust_fan_speed, 0, 15) * 100) / 15
+    ? ((p1state.exhaust_fan_speed == 0) ? 0 : (10 + (constrain(p1state.exhaust_fan_speed, 0, 15) * 90) / 15))
     : constrain(p1state.exhaust_fan_speed, 0, 100);
   int p2pct = (p2state.gen == 1)
-    ? (constrain(p2state.exhaust_fan_speed, 0, 15) * 100) / 15
+    ? ((p2state.exhaust_fan_speed == 0) ? 0 : (10 + (constrain(p2state.exhaust_fan_speed, 0, 15) * 90) / 15))
     : constrain(p2state.exhaust_fan_speed, 0, 100);
 
   int targetPct = 0;
@@ -653,7 +653,7 @@ void handlePrinterStatus() {
     // Gen2 H2C: airduct state is already 0-100
     int exhaustPct;
     if (s.gen == 1) {
-      exhaustPct = (constrain(s.exhaust_fan_speed, 0, 15) * 100) / 15;
+      exhaustPct = (s.exhaust_fan_speed == 0) ? 0 : (10 + (constrain(s.exhaust_fan_speed, 0, 15) * 90) / 15);
     } else {
       exhaustPct = constrain(s.exhaust_fan_speed, 0, 100);
     }
