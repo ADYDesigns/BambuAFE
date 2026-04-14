@@ -93,6 +93,15 @@ PrinterState p1state;
 PrinterState p2state;
 int currentFanPct = 0;
 
+// ─── Fan runtime tracking ──────────────────────────────────────────────────
+unsigned long runtimeMinutes    = 0;   // total minutes fan has run above 5%
+unsigned long lastRuntimeSave   = 0;   // millis of last save to LittleFS
+unsigned long lastRuntimeTick   = 0;   // millis of last 1-second tick
+unsigned long runtimeSecondAcc  = 0;   // accumulated seconds within current minute
+
+#define RUNTIME_FILE       "/runtime.json"
+#define RUNTIME_SAVE_MS    600000      // save every 10 minutes
+
 // ══════════════════════════════════════════════════════════════════════════
 //  PWM fan control
 // ══════════════════════════════════════════════════════════════════════════
@@ -519,6 +528,34 @@ void deleteConfig() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+//  Runtime tracking helpers
+// ══════════════════════════════════════════════════════════════════════════
+
+void loadRuntime() {
+  File f = LittleFS.open(RUNTIME_FILE, "r");
+  if (!f) return;
+  JsonDocument doc;
+  if (!deserializeJson(doc, f)) runtimeMinutes = doc["runtime_minutes"] | 0;
+  f.close();
+}
+
+void saveRuntime() {
+  File f = LittleFS.open(RUNTIME_FILE, "w");
+  if (!f) return;
+  JsonDocument doc;
+  doc["runtime_minutes"] = runtimeMinutes;
+  serializeJson(doc, f);
+  f.close();
+  lastRuntimeSave = millis();
+}
+
+void resetRuntime() {
+  runtimeMinutes   = 0;
+  runtimeSecondAcc = 0;
+  saveRuntime();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 //  HTML helpers
 // ══════════════════════════════════════════════════════════════════════════
 
@@ -707,6 +744,23 @@ void handleReboot() {
   delay(500); ESP.restart();
 }
 
+void handleRuntimeGet() {
+  if (!checkAuth()) return;
+  JsonDocument doc;
+  doc["hours"]   = runtimeMinutes / 60;
+  doc["minutes"] = runtimeMinutes % 60;
+  doc["total_minutes"] = runtimeMinutes;
+  String json; serializeJson(doc, json);
+  server.send(200, "application/json", json);
+}
+
+void handleRuntimeReset() {
+  if (!checkAuth()) return;
+  if (server.method() != HTTP_POST) { server.send(405, "text/plain", "Method Not Allowed"); return; }
+  resetRuntime();
+  server.send(200, "application/json", "{\"ok\":true}");
+}
+
 void startNormalServer() {
   server.on("/",               HTTP_GET,  handleDashboard);
   server.on("/config.html",    HTTP_GET,  handleConfigPage);
@@ -716,6 +770,8 @@ void startNormalServer() {
   server.on("/config",         HTTP_POST, handleConfigPost);
   server.on("/reset",          HTTP_POST, handleResetPost);
   server.on("/reboot",         HTTP_POST, handleReboot);
+  server.on("/runtime",        HTTP_GET,  handleRuntimeGet);
+  server.on("/runtime/reset",  HTTP_POST, handleRuntimeReset);
   server.on("/get_bambu_token.ps1", HTTP_GET, []() {
     if (!checkAuth()) return;
     File f = LittleFS.open("/get_bambu_token.ps1", "r");
@@ -815,14 +871,38 @@ void setup() {
   }
 
   initMqtt();
+  loadRuntime();
 
   pinMode(2, OUTPUT);
   Serial.printf("[Boot] Running as: %s\n", cfg.device_name);
 }
 
+void loopRuntime() {
+  unsigned long now = millis();
+
+  // Accumulate seconds when fan is above 5%
+  if (currentFanPct > 5) {
+    if (lastRuntimeTick == 0) lastRuntimeTick = now;
+    unsigned long elapsed = now - lastRuntimeTick;
+    lastRuntimeTick = now;
+    runtimeSecondAcc += elapsed;
+    while (runtimeSecondAcc >= 60000) {
+      runtimeMinutes++;
+      runtimeSecondAcc -= 60000;
+    }
+  } else {
+    lastRuntimeTick = 0;
+  }
+
+  // Save every 10 minutes
+  if (lastRuntimeSave == 0) lastRuntimeSave = now;
+  if (now - lastRuntimeSave >= RUNTIME_SAVE_MS) saveRuntime();
+}
+
 void loop() {
   server.handleClient();
   loopMqtt();
+  loopRuntime();
   static unsigned long lastBlink = 0;
   if (millis() - lastBlink >= 1000) { lastBlink = millis(); digitalWrite(2, !digitalRead(2)); }
 }
