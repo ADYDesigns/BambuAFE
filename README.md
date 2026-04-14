@@ -1,7 +1,7 @@
 # Bambu Automatic Fume Extractor (BambuAFE)
-This project intends to reduce the amount of harmful gases produced during the 3D printing process by creating a slight negative pressure in the chamber to reduce or eliminate them leaking out.  It does this by automatically controlling a fume extractor fan based on what your Bambu printers are doing.  It uses a 3D printed filter box with active charcoal and an ESP32 to poll one or two Bambu printers for status information and ramp a fan or set of fans up and down based on the printer status.  It also gives basic printer status information through a dashboard.
+This project intends to reduce the amount of harmful gases produced during the 3D printing process by creating a slight negative pressure in the chamber to reduce or eliminate them leaking out.  It does this by automatically controlling a fume extractor fan based on what your Bambu printers are doing.  It uses a 3D printed filter box with active charcoal and an ESP32 to poll one or two Bambu printers for status information and ramp a set of fans up and down based on the printer status.  It also gives basic printer status information through a dashboard.
 
-Although this project was designed around two printers it can easily be used for one printer with no modifications other than printing caps for the non-used intake/exhaust.  Using more than two printers is also possible but is an advanced use case requiring some modifications to the code or possibly the 3D printed model and is not required for a standard one or two printer setup.
+Although this project was designed around two printers it can easily be used for one printer with no modifications other than printing caps for the non-used intake.  Using more than two printers is also possible but is an advanced use case requiring some modifications to the code or possibly the 3D printed model and is not required for a standard one or two printer setup.
 
 # Bill of Materials
 This is a list of materials that will be required.  These are my suggestions to have a successful project but if you are already experienced with electronics and microcontrollers you can of course change the items as you see fit.
@@ -16,24 +16,25 @@ This is a list of materials that will be required.  These are my suggestions to 
 - **Wire connectors** - You can also solder or wire nut the wires but this simplifies the wiring: https://www.amazon.com/dp/B0DGPXWJ28
 - **Fans** - Any high static pressure 92mm fan will work such as the Arctic P9 Max or Noctua NF-A9 PWM: https://www.amazon.com/dp/B0D4YZFKP5
 - **Pre-Filter** - This is just to keep dust out of the active carbon and zeolite mixture.  Almost any thin filter material will do: https://www.lowes.com/pd/Frost-King-Common-15-in-x-24-in-x-0-1875-in-Actual-15-in-x-24-in-Washable-Cut-To-Fit-Air-Filter/1196229
-- **Carbon and Zeolite Filter** - This is doing the majority of the work here and is the most important part.  You can buy loose active carbon from multiple sources but a pet store works well along with filter bag material to keep things clean and organized: https://www.petco.com/shop/en/petcostore/product/imagitarium-activated-carbon-pellets-and-zeolite-crystals and https://www.petco.com/shop/en/petcostore/product/imagitarium-media-filter-bag
+- **Carbon Filter** - This is doing the majority of the work here and is the most important part.  You can buy loose active carbon from multiple sources but a pet store works well along with filter bag material to keep things clean and organized: https://www.petco.com/shop/en/petcostore/product/imagitarium-activated-carbon-pellets-and-zeolite-crystals and https://www.petco.com/shop/en/petcostore/product/imagitarium-media-filter-bag
   * Note: Most active carbon should be washed and fully dried before being used.  Check the instructions on the packaging.
-- **Misc Hardware** - 10x M3x8 self tapping screws, 10x M3 washers, and 4x M4x30 screws & washers per fan.
+- **Misc Hardware** - 10x M3x6 self tapping screws, 4x M4x30 screws & washers per fan, and a USB to Micro USB cable to connect the ESP32 directly to your computer.
 
 # Assembly Guide
 This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.
 
 1. Take the center of the 3D printed filter box and start attaching your components.
-   1. Mount the breakout board to the box using 4x M3x8 self tapping screws.
+   1. Mount the breakout board to the box using 4x M3x6 self tapping screws.  Make sure GND is at the top right and 5v is at the bottom left.
    2. Mount the panel mounted power connector through the hole under the breakout board using its supplied washer and nut.
-   3. Mount the two wire connectors above the power connector using 4x M3x8 self tapping screws.
-   4. Mount the fan(s) to the front using 4x M4x30 screws with washers.
-   5. Mount the 12v to 5v converter under the breakout board using 2x M3x8 self tapping screws.
+   3. Mount the two wire connectors above the power connector using 4x M3x6 self tapping screws.
+   4. Mount the 12v to 5v converter under the breakout board using 2x M3x6 self tapping screws.
+   5. Mount the fan(s) to the front using 4x M4x30 screws with washers.
 2. Wire each of the components.
-   1. Wire the panel mounted power connector to the wire connectors.  At this point you may want to label them P and N or + and -.
+   1. Wire the panel mounted power connector to the wire connectors.  Shorted the wires as needed or coil them up.  It may be easier to unmount the top one, put the wire in, and remount it.  At this point you may also want to label the power connectors P and N or + and -.
    2. Wire the 12v to 5v converter to the power connectors.  In general Red is Positive (+) and Black is Negative (-) — check the labeling on your converter to confirm.
-   3. Wire the fan(s) power wires to the power connectors.  Depending on the fans you bought the connector should be labeled.  Pin 1 should be ground (to N or - on the power connector), Pin 2 should be +12v (to P or + on the power connector), Pin 3 is not used, and Pin 4 is our PWM.  Verify this information on the packaging or the manufacturer's website.
-   4. Wire the fan(s) PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO16 and fan 2 uses GPIO17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter when using two fans as they both come on at the same time.
+   3. Wire the fans power wires to the power connectors.  Depending on the fans you bought the connector should be labeled.  Pin 1 should be ground (to N or - on the power connector), Pin 2 should be +12v (to P or + on the power connector), Pin 3 is not used, and Pin 4 is our PWM.  Verify this information on the packaging or the manufacturer's website.
+   4. Wire the fans PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO16 and fan 2 uses GPIO17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter when using two fans as they both come on at the same time.
+   5. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down.
 3. Cut the pre-filter to size and slide it into the small channel nearest the back of the box.
 4. Put the media bag into the large channel and fill with your active carbon & zeolite mix.
 5. ⚠ Safety Note: Make sure to print out a mesh cap for the exhaust so you don't accidentally stick your fingers in the fan blades — End Cap with Gyroid Mesh (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2606325).
@@ -58,7 +59,7 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
    * If the upload fails you may have to put the ESP32 into boot mode.  Unplug the power, wait a few seconds, then while holding the boot button down plug the power back in.  Count to at least 3 then let go of the boot button and retry the upload.
 9. Flash the firmware by clicking on the PlatformIO icon indicated by an alien head on the left sidebar then General -> Upload.  You can also press CTRL+ALT+U as a shortcut though this may not work on all keyboards or systems.
    * After flashing, open the Serial Monitor (PlatformIO -> Monitor) and you will see the controller's IP address printed when it connects to your WiFi — this is handy for finding it on your network.
-10. Once flashing is complete and you can see the IP address in the Serial Monitor, the BambuAFE-Setup WiFi network will no longer be visible.  The controller should be working correctly and you can put the top cover on the box.
+10. Once flashing is complete unplug the ESP32 from your computer and plug the micro USB connector from the 12v to 5v converter into the ESP32 wrapping any extra wire around the converter mounts.  Plug the 12v power adapter into the side of the filter box to power up the ESP32 controller.
 
 # Initial Setup of the Controller
 1. By default the ESP32 will broadcast a wireless network called 'BambuAFE-Setup'.  Look for and connect to this WiFi network.
@@ -103,6 +104,7 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
    2. Enter the speed when either printer is actively exhausting (when the printer's exhaust fan is actively running).  This should be around 50% for a dual fan / dual printer setup or possibly higher for a single fan / dual printer setup.
    3. Enter the speed when both printers are actively exhausting.  This should be around 100%.
 7. Click Save and the controller will apply your changes.
+8. Once everything is working close up the filter box.
    
 # Resetting the Config
 To reset and clear the controller, you can:
