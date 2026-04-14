@@ -261,7 +261,7 @@ void parseGen2Payload(JsonObject& print, PrinterState& state) {
   }
   if (!print["exhaust_fan_speed"].isNull()) {
     state.exhaust_fan_speed = print["exhaust_fan_speed"].as<int>();
-    state.exhausting        = (state.exhaust_fan_speed > 1);
+    state.exhausting        = (state.exhaust_fan_speed > 0);
   }
 
   // Gen 2 airduct — exhaust fan is func=2 in device.airduct.parts
@@ -271,7 +271,7 @@ void parseGen2Payload(JsonObject& print, PrinterState& state) {
       if ((part["func"] | -1) == 2) {
         int fanState = part["state"] | 0;
         state.exhaust_fan_speed = fanState;
-        state.exhausting        = (fanState > 1);
+        state.exhausting        = (fanState > 0);
         break;
       }
     }
@@ -548,7 +548,6 @@ void saveRuntime() {
   serializeJson(doc, f);
   f.close();
   lastRuntimeSave = millis();
-  Serial.println("[Runtime] Saved.");
 }
 
 void resetRuntime() {
