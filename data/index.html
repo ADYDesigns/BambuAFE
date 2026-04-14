@@ -234,8 +234,28 @@
         <div class="fan-bar-track"><div class="fan-bar-fill" id="fan-bar" style="width:0%"></div></div>
         <div class="fan-pct-label" id="fan-pct-label">0%</div>
       </div>
+      <div style="margin-top:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
+        <div>
+          <div class="card-label">Total filter fan runtime</div>
+          <div style="font-size:1rem;font-weight:700;color:#111827;" id="runtime-display">—</div>
+        </div>
+        <div>
+          <button id="runtime-reset-btn" onclick="showRuntimeResetConfirm()" style="padding:0.4rem 0.9rem;background:#fff;color:#dc2626;border:1.5px solid #dc2626;border-radius:8px;font-size:0.8rem;font-weight:600;cursor:pointer;">Reset runtime</button>
+          <div id="runtime-confirm" style="display:none;margin-top:0.5rem;padding:0.6rem;background:#fef2f2;border-radius:8px;font-size:0.8rem;color:#991b1b;">
+            Are you sure you want to reset the filter and fan runtime?
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+              <button onclick="doRuntimeReset()" style="padding:0.35rem 0.8rem;background:#dc2626;color:#fff;border:none;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer;">Yes, reset</button>
+              <button onclick="hideRuntimeResetConfirm()" style="padding:0.35rem 0.8rem;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:6px;font-size:0.8rem;cursor:pointer;">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+
+  <p style="font-size:0.72rem;color:#9ca3af;font-style:italic;text-align:center;margin:0.25rem auto 0.75rem;max-width:640px;padding:0 1rem;">
+    To better track usage runtime should be reset when replacing active charcoal.
+  </p>
 
   <!-- ── ESP32 Status ── -->
   <div class="section">
@@ -354,11 +374,34 @@
         .catch(() => {});
     }
 
-    function fetchAll() { fetchStatus(); fetchPrinterStatus(); }
+    function fetchRuntime() {
+      fetch('/runtime')
+        .then(r => r.json())
+        .then(d => {
+          document.getElementById('runtime-display').textContent =
+            d.hours + 'h ' + String(d.minutes).padStart(2, '0') + 'm';
+        })
+        .catch(() => {});
+    }
+
+    function showRuntimeResetConfirm() { document.getElementById('runtime-confirm').style.display = 'block'; }
+    function hideRuntimeResetConfirm() { document.getElementById('runtime-confirm').style.display = 'none'; }
+
+    function doRuntimeReset() {
+      fetch('/runtime/reset', { method: 'POST' })
+        .then(() => {
+          hideRuntimeResetConfirm();
+          fetchRuntime();
+        })
+        .catch(() => { hideRuntimeResetConfirm(); });
+    }
+
+    function fetchAll() { fetchStatus(); fetchPrinterStatus(); fetchRuntime(); }
 
     fetchAll();
     setInterval(fetchStatus, 10000);
     setInterval(fetchPrinterStatus, 5000);
+    setInterval(fetchRuntime, 30000);
   </script>
 
 </body>
