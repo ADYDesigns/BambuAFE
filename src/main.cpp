@@ -130,8 +130,8 @@ void setFanSpeed(int pct) {
 void updateFanSpeed() {
   bool p1printing   = p1state.connected && (strcmp(p1state.gcode_state, "RUNNING") == 0);
   bool p2printing   = p2state.connected && (strcmp(p2state.gcode_state, "RUNNING") == 0);
-  bool p1exhausting = p1state.connected && (p1state.exhaust_fan_speed > 1);
-  bool p2exhausting = p2state.connected && (p2state.exhaust_fan_speed > 1);
+  bool p1exhausting = p1state.connected && (p1state.exhaust_fan_speed > 0);
+  bool p2exhausting = p2state.connected && (p2state.exhaust_fan_speed > 0);
 
   // Normalise exhaust to 0-100% for each printer
   int p1pct = (p1state.gen == 1)
@@ -200,7 +200,7 @@ void parseGen1Payload(JsonObject& print, PrinterState& state) {
     state.chamber_temp = print["device"]["ctc"]["info"]["temp"].as<float>();
   if (!print["exhaust_fan_speed"].isNull()) {
     state.exhaust_fan_speed = print["exhaust_fan_speed"].as<int>();
-    state.exhausting        = (state.exhaust_fan_speed > 1);
+    state.exhausting        = (state.exhaust_fan_speed > 0);
   } else if (!print["big_fan2_speed"].isNull()) {
     // X1C reports exhaust fan as big_fan2_speed, scale 0-15
     int fanSpeed = String(print["big_fan2_speed"] | "0").toInt();
