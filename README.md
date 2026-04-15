@@ -30,7 +30,7 @@ This assembly guide is assuming you have everything from the bill of materials a
    3. Mount the two wire connectors above the power connector using 4x M3x6 self tapping screws.
       * Note: You may want to skip these and attach them after you run the wires.
    4. Mount the 12v to 5v converter under the breakout board using 2x M3x6 self tapping screws.
-   5. Mount the fan(s) to the front using 4x M4x30 screws with washers.  Make sure they are exhausting out the front by looking at the blades.  They "scoop" the air when rotating.  For the Arctic P9 the air flow should be from the logo side to the non logo side (logo will face inside the box).  This can always be flipped later.
+   5. Mount the fan(s) to the front using 4x M4x30 screws with washers.  Make sure they are exhausting out the front by looking at the blades.  They "scoop" the air when rotating.  For the Arctic P9 the air flow should be from the logo side to the non-logo side (logo will face inside the box).  This can always be flipped later.
 2. Wire each of the components.
    1. Wire the panel mounted power connector to the wire connectors.  Shorten the wires as needed or coil them up.  At this point you may want to label the power connectors P and N or + and -.
    2. Wire the 12v to 5v converter to the power connectors.  In general Red is Positive (+) and Black is Negative (-) — check the labeling on your converter to confirm.
