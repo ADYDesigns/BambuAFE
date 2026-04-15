@@ -39,7 +39,7 @@ This assembly guide is assuming you have everything from the bill of materials a
    5. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down.
 3. Cut the pre-filter to size and slide it into the small channel nearest the back of the box.
 4. Fill the media bag with your active carbon, checking fullness against the channel.  You want it full but not tightly packed.
-5. ⚠ Safety Note: Make sure to print out a mesh cap for the exhaust so you don't accidentally stick your fingers in the fan blades — End Cap with Gyroid Mesh (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2606325).
+5. ⚠ Safety Note: Make sure to print out a mesh cap for each exhaust so you don't accidentally stick your fingers in the fan blades — End Cap with Gyroid Mesh (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2606325).
 6. If you are hooking up to only one printer also print out a cap for the second intake — Solid End Cap (No Airflow) (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated?profiled=2938064#profileId-2938064).
 
 # Installing the Software and Flashing the Controller
