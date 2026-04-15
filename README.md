@@ -24,7 +24,7 @@ This is a list of materials that will be required.  These are my suggestions to 
 # Assembly Guide
 This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.
 
-1. Take the center of the 3D printed filter box and start attaching your components.
+1. Take the 3D printed filter box and start attaching your components:
    1. Mount the breakout board to the box using 4x M3x6 self tapping screws.  Make sure GND is at the top right and 5v is at the bottom left.
    2. Mount the panel mounted power connector through the hole under the breakout board using its supplied washer and nut.
    3. Mount the two wire connectors above the power connector using 4x M3x6 self tapping screws.
@@ -34,7 +34,7 @@ This assembly guide is assuming you have everything from the bill of materials a
 2. Wire each of the components.
    1. Wire the panel mounted power connector to the wire connectors.  Shorten the wires as needed or coil them up.  At this point you may want to label the power connectors P and N or + and -.
    2. Wire the 12v to 5v converter to the power connectors.  In general Red is Positive (+) and Black is Negative (-) — check the labeling on your converter to confirm.
-   3. Wire the fans' power wires to the power connectors.  Depending on the fans you bought the connector should be labeled.  Pin 1 should be ground (to N or - on the power connector), Pin 2 should be +12v (to P or + on the power connector), Pin 3 is not used, and Pin 4 is our PWM.  Verify this information on the packaging or the manufacturer's website.  These wires are small but the power connectors should hold them.  If you have trouble wire strip 1/2" an inch off then double the wire back onto itself and wrap it around to make it thicker.
+   3. Wire the fans' power wires to the power connectors. Depending on the fans you bought the connector should be labeled. Pin 1 should be ground (to the N or - power connector), Pin 2 should be +12v (to the P or + power connector), Pin 3 is not used, and Pin 4 is our PWM. Verify this information on the packaging or the manufacturer's website. These wires are small but the power connectors should hold them. If you have trouble carefully strip 1/2 an inch of insulation off the end then double the bare wire back onto itself and wrap it around to make it thicker.
    4. Wire the fans' PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO16 and fan 2 uses GPIO17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter as they both come on at the same time.
    5. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down.
 3. Cut the pre-filter to size and slide it into the small channel nearest the back of the box.
