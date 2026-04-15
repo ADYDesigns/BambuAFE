@@ -29,12 +29,12 @@ This assembly guide is assuming you have everything from the bill of materials a
    2. Mount the panel mounted power connector through the hole under the breakout board using its supplied washer and nut.
    3. Mount the two wire connectors above the power connector using 4x M3x6 self tapping screws.
       * Note: You may want to skip these and attach them after you run the wires.
-   5. Mount the 12v to 5v converter under the breakout board using 2x M3x6 self tapping screws.
-   6. Mount the fan(s) to the front using 4x M4x30 screws with washers.
+   4. Mount the 12v to 5v converter under the breakout board using 2x M3x6 self tapping screws.
+   5. Mount the fan(s) to the front using 4x M4x30 screws with washers.
 2. Wire each of the components.
    1. Wire the panel mounted power connector to the wire connectors.  Shorten the wires as needed or coil them up. At this point you may also want to label the power connectors P and N or + and -.
    2. Wire the 12v to 5v converter to the power connectors.  In general Red is Positive (+) and Black is Negative (-) — check the labeling on your converter to confirm.
-   3. Wire the fans power wires to the power connectors.  Depending on the fans you bought the connector should be labeled.  Pin 1 should be ground (to N or - on the power connector), Pin 2 should be +12v (to P or + on the power connector), Pin 3 is not used, and Pin 4 is our PWM.  Verify this information on the packaging or the manufacturer's website.  These wires are small but the power connectors should hold them.  If you have trouble wire strip 1/2" a inch off then double the wire back onto itself and wrap it around to make it thicker.
+   3. Wire the fans power wires to the power connectors.  Depending on the fans you bought the connector should be labeled.  Pin 1 should be ground (to N or - on the power connector), Pin 2 should be +12v (to P or + on the power connector), Pin 3 is not used, and Pin 4 is our PWM.  Verify this information on the packaging or the manufacturer's website.  These wires are small but the power connectors should hold them.  If you have trouble wire strip 1/2" an inch off then double the wire back onto itself and wrap it around to make it thicker.
    4. Wire the fans PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO16 and fan 2 uses GPIO17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter as they both come on at the same time.
    5. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down.
 3. Cut the pre-filter to size and slide it into the small channel nearest the back of the box.
@@ -59,7 +59,7 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
 7. Upload the web interface files by clicking on the PlatformIO icon indicated by an alien head on the left sidebar then General -> Upload Filesystem Image.  This uploads the web pages (dashboard, setup form, etc.) that run on the controller and must be done before flashing the firmware.  Make sure the ESP32 is connected and recognised by your computer before doing this — check Device Manager if you are unsure.
    * By default Visual Code will try to auto detect the ESP32.  If you have other serial devices plugged in this may fail.  At the bottom of the VS Code screen you can click the power plug icon that says "Auto" next to it and select the ESP32 directly.
    * If the upload fails you may have to put the ESP32 into boot mode.  Unplug the power, wait a few seconds, then while holding the boot button down plug the power back in.  Count to at least 3 then let go of the boot button and retry the upload.
-9. Flash the firmware by clicking on the PlatformIO icon indicated by an alien head on the left sidebar then General -> Upload.  You can also press CTRL+ALT+U as a shortcut though this may not work on all keyboards or systems.
+8. Flash the firmware by clicking on the PlatformIO icon indicated by an alien head on the left sidebar then General -> Upload.  You can also press CTRL+ALT+U as a shortcut though this may not work on all keyboards or systems.
    * After flashing, open the Serial Monitor (PlatformIO -> Monitor) to watch the status of your controller.
 
 # Initial Setup of the Controller
