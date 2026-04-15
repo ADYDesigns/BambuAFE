@@ -102,7 +102,7 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
 5. For each printer:
    1. Enter the printer's name.  This is for your own information and to see status later.
    2. Enter the printer's serial number.  This can be found on a sticker on the back or bottom of the printer, or in Bambu Studio under the Device tab.
-   3. Select the printer generation.  Gen 1 covers the X1C, P1S, P1P, A1, and A1 Mini.  Gen 2 covers the H2C, H2S, H2D, and P2S.
+   3. Select the printer generation.  Gen 1 covers the X1C, P1S, P1P, A1, and A1 Mini.  Gen 2 covers the H2C, H2S, H2D, P2S, and X2D.
 6. On the same Configuration page scroll down to the **Fans** section:
    1. Enter the minimum speed when either printer is printing.  The fans have a minimum so 8% is usually the lowest this should be set.
    2. Enter the maximum speed when one printer is actively exhausting (when the printer's exhaust fan is actively running).  The actual fan speed will scale between the minimum and this maximum based on the printer's exhaust speed.  This should be around 50%.
