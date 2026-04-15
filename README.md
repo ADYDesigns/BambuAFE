@@ -1,7 +1,7 @@
 # Bambu Automatic Fume Extractor (BambuAFE)
 This project intends to reduce the amount of harmful gases produced during the 3D printing process by creating a slight negative pressure in the chamber to reduce or eliminate them leaking out.  It does this by automatically controlling a fume extractor fan based on what your Bambu printers are doing.  It uses a 3D printed filter box with active charcoal and an ESP32 to poll one or two Bambu printers for status information and ramp a set of fans up and down based on the printer status.  It also gives basic printer status information through a dashboard.
 
-Although this project was designed around two printers it can easily be used for one printer with no modifications other than printing a cap for the non-used intake. Using more than two printers is also possible but is an advanced use case requiring some modifications to the code to monitor more then two printers.
+Although this project was designed around two printers it can easily be used for one printer with no modifications other than printing a cap for the non-used intake. Using more than two printers is also possible but is an advanced use case requiring some modifications to the code to monitor more than two printers.
 
 # Bill of Materials
 This is a list of materials that will be required.  These are my suggestions to have a successful project but if you are already experienced with electronics and microcontrollers you can of course change the items as you see fit.
