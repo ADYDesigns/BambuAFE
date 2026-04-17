@@ -19,7 +19,7 @@ This is a list of materials that will be required.  These are my suggestions to 
 - **Active Carbon** - This is doing the majority of the work here and is the most important part.  You can buy loose active carbon from multiple sources such as a pet store but I went with one made for air filtration: https://www.amazon.com/dp/B0CFCKFPHR
   * Note: Most active carbon should be washed and fully dried before being used.  Check the instructions on the packaging.
 - **Filter Bag** - A bag to hold the active carbon: https://www.amazon.com/dp/B09HQFZXSY
-- **Misc Hardware** - 10x M3x6 self tapping screws, 4x M4x30 screws & washers per fan, and a USB to Micro USB cable to connect the ESP32 directly to your computer.
+- **Misc Hardware** - 10x M3x6 self tapping screws, 4x M4x30 screws & washers per fan, and a USB to Micro USB cable to connect the ESP32 directly to your computer for programming.
 
 # Assembly Guide
 This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.
@@ -40,10 +40,11 @@ This assembly guide is assuming you have everything from the bill of materials a
       * Note: You may also want to label these wires although you only really need to label wire 1 since they are connected in the ribbon and you will know it's 1 through 4.  Sometimes wire 1 will have markings on the wire itself like a dashed white line.
    4. Wire the fans' PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO16 and fan 2 uses GPIO17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter as they both come on at the same time.  The wire will have to be stripped for this as the spot on the breakout board is pretty small.
    6. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down.
-3. Cut the pre-filter to size and slide it into the small channel nearest the back of the box.
-4. Fill the media bag with your active carbon, checking fullness against the channel.  You want it full but not tightly packed.
-5. ⚠ Safety Note: Make sure to print out a mesh cap for each exhaust so you don't accidentally stick your fingers in the fan blades — End Cap with Gyroid Mesh (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2606325).
-6. If you are hooking up to only one printer also print out a cap for the second intake — Solid End Cap (No Airflow) (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated?profiled=2938064#profileId-2938064).
+3. Slide in the bottom lid
+4. Cut the pre-filter to size and slide it into the small channel nearest the back of the box.
+5. Fill the media bag with your active carbon, checking fullness against the channel.  You want it full but not tightly packed.
+6. ⚠ Safety Note: Make sure to print out a mesh cap for each exhaust so you don't accidentally stick your fingers in the fan blades — End Cap with Gyroid Mesh (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2606325).
+7. If you are hooking up to only one printer also print out a cap for the second intake — Solid End Cap (No Airflow) (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated?profiled=2938064#profileId-2938064).
 
 # Installing the Software and Flashing the Controller
 For the programming side I will be using the free Microsoft Visual Studio Code program available at https://code.visualstudio.com/ .  You can also use the Arduino IDE if you are familiar with that but these instructions will use VS Code.
