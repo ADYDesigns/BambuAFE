@@ -46,6 +46,7 @@
 
 #define BAMBU_CLOUD_PORT   8883
 #define MQTT_RECONNECT_MS  15000
+#define POT_PIN            18
 
 // ─── Global objects ────────────────────────────────────────────────────────
 WebServer        server(80);
@@ -98,11 +99,22 @@ int currentFanPct = 0;
 // ─── Fan runtime tracking ──────────────────────────────────────────────────
 unsigned long runtimeMinutes    = 0;   // total minutes fan has run above 5%
 unsigned long lastRuntimeSave   = 0;   // millis of last save to LittleFS
-unsigned long lastRuntimeTick   = 0;   // millis of last 1-second tick
+unsigned long lastRuntimeTick   = 0;   // millis of last accumulator tick
 unsigned long runtimeSecondAcc  = 0;   // accumulated milliseconds toward the next minute
 
 #define RUNTIME_FILE       "/runtime.json"
 #define RUNTIME_SAVE_MS    600000      // save every 10 minutes
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Potentiometer — manual fan override on GPIO 18
+//  Returns 0-100 if pot is connected, -1 if not detected
+// ══════════════════════════════════════════════════════════════════════════
+
+int readPotentiometer() {
+  int raw = analogRead(POT_PIN);
+  if (raw < 372) return -1;  // below ~0.3v threshold — treat as not connected
+  return map(raw, 372, 4095, 0, 100);
+}
 
 // ══════════════════════════════════════════════════════════════════════════
 //  PWM fan control
@@ -128,6 +140,13 @@ void setFanSpeed(int pct) {
 }
 
 void updateFanSpeed() {
+  // Check for manual potentiometer override first
+  int potPct = readPotentiometer();
+  if (potPct >= 0) {
+    setFanSpeed(constrain(potPct, 0, 100));
+    return;
+  }
+
   bool p1printing   = p1state.connected && (strcmp(p1state.gcode_state, "RUNNING") == 0);
   bool p2printing   = p2state.connected && (strcmp(p2state.gcode_state, "RUNNING") == 0);
   bool p1exhausting = p1state.connected && (p1state.exhaust_fan_speed > 0);
@@ -345,7 +364,8 @@ void requestPushAll(const char* serial, PrinterState& state) {
   char reqTopic[80];
   snprintf(reqTopic, sizeof(reqTopic), "device/%s/request", serial);
   const char* pushCmd = "{\"pushing\":{\"command\":\"pushall\"}}";
-  bool ok = mqttClient.publish(reqTopic, pushCmd);
+  if (!mqttClient.publish(reqTopic, pushCmd))
+    Serial.printf("[MQTT] pushall failed for %s\n", serial);
   state.pushall_sent = true;
 }
 
@@ -486,9 +506,9 @@ bool loadConfig() {
   strlcpy(cfg.printer2_name,   doc["printer2_name"]   | "",               sizeof(cfg.printer2_name));
   strlcpy(cfg.printer2_serial, doc["printer2_serial"] | "",               sizeof(cfg.printer2_serial));
   cfg.printer2_gen              = doc["printer2_gen"]              | 1;
-  cfg.fan_speed_printing        = doc["fan_speed_printing"]        | 10;
+  cfg.fan_speed_printing            = doc["fan_speed_printing"]            | 10;
   cfg.fan_speed_one_exhausting      = doc["fan_speed_one_exhausting"]      | 50;
-  cfg.fan_speed_both_exhausting = doc["fan_speed_both_exhausting"] | 100;
+  cfg.fan_speed_both_exhausting     = doc["fan_speed_both_exhausting"]     | 100;
 
   return true;
 }
@@ -511,7 +531,7 @@ bool saveConfig() {
   doc["printer2_serial"]         = cfg.printer2_serial;
   doc["printer2_gen"]            = cfg.printer2_gen;
   doc["fan_speed_printing"]      = cfg.fan_speed_printing;
-  doc["fan_speed_one_exhausting"]    = cfg.fan_speed_one_exhausting;
+  doc["fan_speed_one_exhausting"] = cfg.fan_speed_one_exhausting;
   doc["fan_speed_both_exhausting"] = cfg.fan_speed_both_exhausting;
   serializeJsonPretty(doc, f);
   f.close();
@@ -649,7 +669,7 @@ void handlePrinterStatus() {
   auto printerJson = [](JsonObject obj, const PrinterState& s, const char* name) {
     // Normalise exhaust_fan_speed to 0-100%
     // Gen1 X1C: big_fan2_speed uses 0-15 scale
-    // Gen2 H2C: airduct state is already 0-100
+    // Gen2 H2C/X2D: airduct state is already 0-100
     int exhaustPct;
     if (s.gen == 1) {
       exhaustPct = (s.exhaust_fan_speed == 0) ? 0 : (10 + (constrain(s.exhaust_fan_speed, 0, 15) * 90) / 15);
@@ -668,7 +688,8 @@ void handlePrinterStatus() {
     obj["exhaust_pct"]   = exhaustPct;
   };
   JsonDocument doc;
-  doc["fan_pct"] = currentFanPct;
+  doc["fan_pct"]        = currentFanPct;
+  doc["manual_override"] = (readPotentiometer() >= 0);
   if (strlen(cfg.printer1_serial)) printerJson(doc["printer1"].to<JsonObject>(), p1state, cfg.printer1_name);
   if (strlen(cfg.printer2_serial)) printerJson(doc["printer2"].to<JsonObject>(), p2state, cfg.printer2_name);
   String json; serializeJson(doc, json);
@@ -687,9 +708,9 @@ void handleConfigGet() {
   doc["printer2_name"]           = cfg.printer2_name;
   doc["printer2_serial"]         = cfg.printer2_serial;
   doc["printer2_gen"]            = cfg.printer2_gen;
-  doc["fan_speed_printing"]      = cfg.fan_speed_printing;
+  doc["fan_speed_printing"]          = cfg.fan_speed_printing;
   doc["fan_speed_one_exhausting"]    = cfg.fan_speed_one_exhausting;
-  doc["fan_speed_both_exhausting"] = cfg.fan_speed_both_exhausting;
+  doc["fan_speed_both_exhausting"]   = cfg.fan_speed_both_exhausting;
   String json; serializeJson(doc, json);
   server.send(200, "application/json", json);
 }
@@ -850,6 +871,7 @@ void setup() {
   Serial.printf("[Boot] Firmware version: %s\n", FIRMWARE_VERSION);
 
   initFans();
+  pinMode(POT_PIN, INPUT);
 
   if (!LittleFS.begin(true)) { Serial.println("[FS] Mount failed!"); return; }
   Serial.println("[FS] LittleFS mounted");
@@ -859,8 +881,8 @@ void setup() {
   if (!configExists() || !loadConfig()) startConfigPortal();
 
   if (!connectWiFi()) {
-    Serial.println("[Boot] Wi-Fi failed — falling back to config portal");
-    deleteConfig(); ESP.restart();
+    Serial.println("[Boot] Wi-Fi failed — restarting...");
+    ESP.restart();
   }
 
   startNormalServer();
@@ -879,7 +901,7 @@ void setup() {
 void loopRuntime() {
   unsigned long now = millis();
 
-  // Accumulate seconds when fan is above 5%
+  // Accumulate milliseconds when fan is above 5%
   if (currentFanPct > 5) {
     if (lastRuntimeTick == 0) lastRuntimeTick = now;
     unsigned long elapsed = now - lastRuntimeTick;
