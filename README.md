@@ -39,7 +39,7 @@ This assembly guide is assuming you have everything from the bill of materials a
       1. Use a small screw driver and pop the metal connector out of the plastic plug.  This is the best option for the +12v and Ground wires as the metal connector will fit inside the power connectors when you flatten them down.
       2. Cut the wire then carefully strip about 1/2 an inch of insulation off the end.  Double the bare wire back onto itself and wrap it around to make it thicker.
       * Note: You may also want to label these wires although you only really need to label wire 1 since they are connected in the ribbon and you will know it's 1 through 4.  Sometimes wire 1 will have markings on the wire itself like a dashed white line.
-   4. Wire the fans' PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO16 and fan 2 uses GPIO17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter as they both come on at the same time.  The wire will have to be stripped for this as the spot on the breakout board is pretty small.
+   4. Wire the fans' PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO 16 and fan 2 uses GPIO 17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter as they both come on at the same time.  The wire will have to be stripped for this as the spot on the breakout board is pretty small.
    6. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down.
 3. Slide in the bottom lid
 4. Cut the pre-filter to size and slide it into the small channel nearest the back of the box.
@@ -48,7 +48,7 @@ This assembly guide is assuming you have everything from the bill of materials a
 7. If you are hooking up to only one printer also print out a cap for the second intake — Solid End Cap (No Airflow) (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated?profiled=2938064#profileId-2938064).
 
 # Installing the Software and Flashing the Controller
-For the programming side I will be using the free Microsoft Visual Studio Code program available at https://code.visualstudio.com/ .  You can also use the Arduino IDE if you are familiar with that but these instructions will use VS Code.
+For the programming side I will be using the free Microsoft Visual Studio Code program available at https://code.visualstudio.com/.  You can also use the Arduino IDE if you are familiar with that but these instructions will use VS Code.
 
 These instructions assume a standard Windows 10+ machine.  Please adjust for the system you are using.
 
@@ -110,7 +110,7 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
    2. Enter the maximum speed when one printer is actively exhausting (when the printer's exhaust fan is actively running).  The actual fan speed will scale between the minimum and this maximum based on the printer's exhaust speed.  This should be around 50%.
    3. Enter the maximum speed when two printers are actively exhausting.  The actual fan speed will scale between the minimum and this maximum based on the average exhaust level of both printers.  This should be around 100%.
 7. Click Save and the controller will apply your changes.
-8. Once everything is working, close up the filter box.
+8. Once everything is working, close up the filter box and put the top cover on.
    
 # Resetting the Config
 To reset and clear the controller, you can:
