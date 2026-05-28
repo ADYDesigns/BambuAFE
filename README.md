@@ -15,12 +15,12 @@ This is a list of materials that will be required.  These are my suggestions to 
 - **12v to 5v converter** - To power the ESP32 off of the 12v power adapter so you don't have to have two power sources: https://www.amazon.com/dp/B0B6NZBWV4
 - **Wire connectors** - You can also solder or wire nut the wires but this simplifies the wiring: https://www.amazon.com/dp/B0DGPXWJ28
 - **Fans** - Any high static pressure 92mm fan will work such as the Arctic P9 Max or Noctua NF-A9 PWM.  I went with the Arctic P9's: https://www.amazon.com/dp/B0D4YZFKP5
-- **Pre-Filter** - This is just to keep dust out of the active carbon.  Almost any thin filter material will do: https://www.lowes.com/pd/Frost-King-Common-15-in-x-24-in-x-0-1875-in-Actual-15-in-x-24-in-Washable-Cut-To-Fit-Air-Filter/1196229
 - **Active Carbon** - This is doing the majority of the work here and is the most important part.  You can buy loose active carbon from multiple sources such as a pet store but I went with one made for air filtration: https://www.amazon.com/dp/B0CFCKFPHR
   * Note: Most active carbon should be washed and fully dried before being used.  Check the instructions on the packaging.
 - **Filter Bag** - A bag to hold the active carbon: https://www.amazon.com/dp/B09HQFZXSY
 - **Misc Hardware** - 10x M3x6 self tapping screws, 8x M4x30 screws & washers, and a USB to Micro USB cable to connect the ESP32 directly to your computer for programming.
-- **Optional Hardware** - A 10k potentiometer to manually control the fans.  See the "Setting up Manual Mode" section:  https://www.amazon.com/MTDELE-Potentiometer-Variable-Resistor-Connector/dp/B0D93WJJTR
+- **Optional - Pre-Filter** - We are pulling from the exhaust which should already be filtered on a Bambu printer but is here in case you want to use this on a different printer or enclosure, as it will help keep dust and particles out of the active carbon.  Almost any thin filter material will do: https://www.lowes.com/pd/Frost-King-Common-15-in-x-24-in-x-0-1875-in-Actual-15-in-x-24-in-Washable-Cut-To-Fit-Air-Filter/1196229
+- **Optional - Potentiometer** - A 10k potentiometer to manually control the fans.  See the "Setting up Manual Mode" section:  https://www.amazon.com/MTDELE-Potentiometer-Variable-Resistor-Connector/dp/B0D93WJJTR
 
 # Assembly Guide
 This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.
@@ -42,8 +42,8 @@ This assembly guide is assuming you have everything from the bill of materials a
    4. Wire the fans' PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO 16 and fan 2 uses GPIO 17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter as they both come on at the same time.  The wire will have to be stripped for this as the spot on the breakout board is pretty small.
    6. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down.
 3. Slide in the bottom lid
-4. Cut the pre-filter to size and slide it into the small channel nearest the back of the box.
-5. Fill the media bag with your active carbon, checking fullness against the channel.  You want it full but not tightly packed.
+4. If using a pre-filter slide two honeycomb walls into the small channel nearest the back of the box.  Cut the pre-filter to size and slide it in between the walls.
+5. Slide two honeycomb walls into the large channel in the middle of the box.  Place the media bag in the channel and fill it with your active carbon, checking the level against the top of the channel.  You want it full to the top but not tightly packed.  Close the bag once full.
 6. ⚠ Safety Note: Make sure to print out a mesh cap for each exhaust so you don't accidentally stick your fingers in the fan blades — End Cap with Gyroid Mesh (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2606325).
 7. If you are hooking up to only one printer also print out a cap for the second intake — Solid End Cap (No Airflow) (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated?profiled=2938064#profileId-2938064).
 
@@ -122,6 +122,6 @@ Once that is done you will have to go back through the **Initial Setup of the Co
 # Setting up Manual Mode
 At any time Bambu Lab may shut down the ability to get cloud data which will make this project go from an **Automatic** Fume Extractor to a **Manual** Fume Extractor.  Just in case that happens the ESP32 has already been programmed to accept voltage input on GPIO 18 which can be controlled by a common 10k potentiometer.  In fact if you don't want to connect the device to the Bambu Cloud at all you can add any 10k potentiometer to GPIO 18 and use this project completely manually.  The web interface will not give status info for your printers but will show that the controller is manually overridden and give fan output speed.
 
-The way manual mode works is the controller is always looking for voltage on GPIO 18.  If it doesn't see at least ~0.3v it stays in automatic mode.  But if it sees more than ~0.3v it goes into manual mode.  From that point on turning the potentiometer will ramp the fans up, turning the potentiometer back to zero turns the fans off and goes back to automatic.  The wiring for this is fairly simple: The wiper (usually center pin) of the potentiometer goes to GPIO 18 while the other pins go to ground and 3.3v, all labeled on the breakout board.  Turning the dial past roughly 10% (about 0.3v) will initiate manual mode and beyond that point the fan will ramp up to 100%.  
+The way manual mode works is the controller is always looking for voltage on GPIO 18.  If it doesn't see at least ~0.3v it stays in automatic mode.  However, if it sees more than ~0.3v it goes into manual mode.  From that point on turning the potentiometer will ramp the fans up, turning the potentiometer back to zero turns the fans off and goes back to automatic.  The wiring for this is fairly simple: The wiper (usually center pin) of the potentiometer goes to GPIO 18 while the other pins go to ground and 3.3v, all labeled on the breakout board.  Turning the dial past roughly 10% (about 0.3v) will initiate manual mode and beyond that point the fan will ramp up to 100%.  
 
 If this function is needed simply drill a hole in the side of the enclosure, mount the potentiometer, and wire it in.
