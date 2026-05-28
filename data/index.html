@@ -234,6 +234,7 @@
         <div class="fan-bar-track"><div class="fan-bar-fill" id="fan-bar" style="width:0%"></div></div>
         <div class="fan-pct-label" id="fan-pct-label">0%</div>
       </div>
+      <div id="manual-override-note" style="display:none;margin-top:0.5rem;font-size:0.78rem;color:#b45309;font-style:italic;">Fans currently manually overridden.</div>
       <div style="margin-top:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;">
         <div>
           <div class="card-label">Total filter fan runtime</div>
@@ -370,6 +371,7 @@
           const pct = d.fan_pct || 0;
           document.getElementById('fan-bar').style.width       = pct + '%';
           document.getElementById('fan-pct-label').textContent = pct + '%';
+          document.getElementById('manual-override-note').style.display = d.manual_override ? 'block' : 'none';
         })
         .catch(() => {});
     }
