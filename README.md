@@ -117,3 +117,6 @@ To reset and clear the controller, you can:
 2. Go into the Configuration screen, scroll to the Advanced section at the bottom, and click the 'Reset configuration…' button.
 
 Once that is done you will have to go back through the **Initial Setup of the Controller** and **Configuring the AFE** sections above.
+
+# Manual Mode
+At any time Bambu Lab may shutdown the ability to get cloud data which will make this project go from a **Automatic** Fume Extractor to a **Manual** Fume Extractor.  As a just in case of that happening I have already pre-programmed the ESP-32 to accept a 10k potentiometer input on GPIO 18.  If the ESP-32 detects the potentiometer on this input it will set the fans at 0 from 0k - 1k and then ramp up from 10% to 100% based on the potentiometer.  In fact if you don't want to connect the device to the Bambu Cloud at all you can add any 10k potentiometer to GPIO 18 and use this project completely manually.  The web interface will not give status info but will show that the controll is manually overridden and give fan output speed.
