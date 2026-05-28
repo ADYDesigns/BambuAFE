@@ -19,7 +19,7 @@ This is a list of materials that will be required.  These are my suggestions to 
 - **Active Carbon** - This is doing the majority of the work here and is the most important part.  You can buy loose active carbon from multiple sources such as a pet store but I went with one made for air filtration: https://www.amazon.com/dp/B0CFCKFPHR
   * Note: Most active carbon should be washed and fully dried before being used.  Check the instructions on the packaging.
 - **Filter Bag** - A bag to hold the active carbon: https://www.amazon.com/dp/B09HQFZXSY
-- **Misc Hardware** - 10x M3x6 self tapping screws, 4x M4x30 screws & washers per fan, and a USB to Micro USB cable to connect the ESP32 directly to your computer for programming.
+- **Misc Hardware** - 10x M3x6 self tapping screws, 8x M4x30 screws & washers for the fans, and a USB to Micro USB cable to connect the ESP32 directly to your computer for programming.
 
 # Assembly Guide
 This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.
