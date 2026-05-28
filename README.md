@@ -19,7 +19,7 @@ This is a list of materials that will be required.  These are my suggestions to 
 - **Active Carbon** - This is doing the majority of the work here and is the most important part.  You can buy loose active carbon from multiple sources such as a pet store but I went with one made for air filtration: https://www.amazon.com/dp/B0CFCKFPHR
   * Note: Most active carbon should be washed and fully dried before being used.  Check the instructions on the packaging.
 - **Filter Bag** - A bag to hold the active carbon: https://www.amazon.com/dp/B09HQFZXSY
-- **Misc Hardware** - 10x M3x6 self tapping screws, 8x M4x30 screws & washers for the fans, and a USB to Micro USB cable to connect the ESP32 directly to your computer for programming.
+- **Misc Hardware** - 10x M3x6 self tapping screws, 8x M4x30 screws & washers, and a USB to Micro USB cable to connect the ESP32 directly to your computer for programming.
 
 # Assembly Guide
 This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.
@@ -30,7 +30,7 @@ This assembly guide is assuming you have everything from the bill of materials a
    3. Mount the two wire connectors above the power connector using 4x M3x6 self tapping screws.
       * Note: You may want to skip these and attach them after you run the wires.
    4. Mount the 12v to 5v converter under the breakout board using 2x M3x6 self tapping screws.
-   5. Mount the fans)to the front using 4x M4x30 screws with washers per fan.  Make sure they are exhausting out the front by looking at the blades.  They "scoop" the air when rotating.  For the Arctic P9 the air flow should be from the logo side to the non-logo side (logo will face inside the box).  This can always be flipped later.
+   5. Mount the fans to the front using 4x M4x30 screws with washers per fan.  Make sure they are exhausting out the front by looking at the blades.  They "scoop" the air when rotating.  For the Arctic P9 the air flow should be from the logo side to the non-logo side (logo will face inside the box).  This can always be flipped later.
 2. Wire each of the components.
    1. Wire the panel mounted power connector to the wire connectors.  Shorten the wires as needed or coil them up.  At this point you may want to label the power connectors P and N or + and -.
    2. Wire the 12v to 5v converter to the power connectors.  In general Red is Positive (+) and Black is Negative (-) — check the labeling on your converter to confirm.
