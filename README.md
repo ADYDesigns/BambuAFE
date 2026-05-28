@@ -20,6 +20,7 @@ This is a list of materials that will be required.  These are my suggestions to 
   * Note: Most active carbon should be washed and fully dried before being used.  Check the instructions on the packaging.
 - **Filter Bag** - A bag to hold the active carbon: https://www.amazon.com/dp/B09HQFZXSY
 - **Misc Hardware** - 10x M3x6 self tapping screws, 8x M4x30 screws & washers, and a USB to Micro USB cable to connect the ESP32 directly to your computer for programming.
+- **Optional Hardware** - A 10k potentiometer to manually control the fans.  See the "Setting up Manual Mode" section:  https://www.amazon.com/MTDELE-Potentiometer-Variable-Resistor-Connector/dp/B0D93WJJTR
 
 # Assembly Guide
 This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.
@@ -118,5 +119,7 @@ To reset and clear the controller, you can:
 
 Once that is done you will have to go back through the **Initial Setup of the Controller** and **Configuring the AFE** sections above.
 
-# Manual Mode
-At any time Bambu Lab may shutdown the ability to get cloud data which will make this project go from an **Automatic** Fume Extractor to a **Manual** Fume Extractor.  As a just in case of that happening I have already pre-programmed the ESP-32 to accept a 10k potentiometer input on GPIO 18.  If the ESP32 detects the potentiometer on this input it will set the fans at 0 from 0k - 1k and then ramp up from 10% to 100% based on the potentiometer.  In fact if you don't want to connect the device to the Bambu Cloud at all you can add any 10k potentiometer to GPIO 18 and use this project completely manually.  The web interface will not give status info but will show that the controller is manually overridden and give fan output speed.
+# Setting up Manual Mode
+At any time Bambu Lab may shut down the ability to get cloud data which will make this project go from an **Automatic** Fume Extractor to a **Manual** Fume Extractor.  Just in case that happens the ESP32 has already been programmed to accept voltage input on GPIO 18 which can be controlled by a common 10k potentiometer.  In fact if you don't want to connect the device to the Bambu Cloud at all you can add any 10k potentiometer to GPIO 18 and use this project completely manually.  The web interface will not give status info for your printers but will show that the controller is manually overridden and give fan output speed.
+
+The way manual mode works is the controller is always looking for voltage on GPIO 18.  If it doesn't see at least ~0.3v it stays in automatic mode.  But if it sees more than ~0.3v it goes into manual mode.  From that point on turning the potentiometer will ramp the fans up, turning the potentiometer back to zero turns the fans off and goes back to automatic.  The wiring for this is fairly simple: The wiper (usually center pin) of the potentiometer goes to GPIO 18 while the other pins go to ground and 3.3v, all labeled on the breakout board.  Turning the dial past roughly 10% (about 0.3v) will initiate manual mode and beyond that point the fan will ramp up to 100%.
