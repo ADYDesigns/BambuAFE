@@ -341,9 +341,9 @@
         printer2_name:             document.getElementById('p2-name').value,
         printer2_serial:           document.getElementById('p2-serial').value,
         printer2_gen:              document.getElementById('p2-gen').value,
-        fan_speed_printing:        validateFanSpeed('fan-printing'),
+        fan_speed_printing:            validateFanSpeed('fan-printing'),
         fan_speed_one_exhausting:      validateFanSpeed('fan-exhausting'),
-        fan_speed_both_exhausting: validateFanSpeed('fan-both-exhausting'),
+        fan_speed_both_exhausting:     validateFanSpeed('fan-both-exhausting'),
       });
       fetch('/config', { method: 'POST', body })
         .then(r => r.json())
