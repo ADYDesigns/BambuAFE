@@ -82,7 +82,7 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
 4. Under the **Bambu Cloud Account** section you will need to sign in to link the controller to your Bambu account.  There are three ways to do this:
    1. **Option A — PowerShell script:** This is the recommended way for Windows users.
       1. Download `get_bambu_token.ps1` from the Configuration page on the controller — there is a download link in the Bambu Cloud Account section.
-         Note: Depending on how your computer is setup you may have to right click the file and "Unblock" it before it will run.
+         * Note: Depending on how your computer is setup you may have to right click the file and "Unblock" it before it will run.
       3. Open a [PowerShell 7](https://github.com/powershell/powershell/releases) window and navigate to the directory you saved the script to and execute it by typing `get_bambu_token.ps1` and pressing enter.
       4. Edge will open automatically — log in to your Bambu account and complete any Cloudflare check or 2FA if prompted.
       5. While leaving Edge open return to the PowerShell window and press ENTER once you are fully logged in.
