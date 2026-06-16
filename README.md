@@ -43,7 +43,7 @@ This assembly guide is assuming you have everything from the bill of materials a
    5. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down.  [Image](images/Wiring-ESP32.jpg)
    6. Wrap the extra wire around the fan to pull back the slack and then mount the fans to the front using 4x M4x30 screws per fan.  The screws will help "hold" the wires to the fan housing.  You can also use wire ties, velcro straps, etc to hold the wires back.  Make sure they are exhausting out the front by looking at the blades.  They "scoop" the air when rotating.  For the Arctic P9 the air flow should be from the logo side to the non-logo side (logo will face inside the box).  This can always be flipped later.  [Image](images/Wiring-FanWireRouting1.jpg)  [Image](images/Wiring-FanWireRouting2.jpg)  [Image](images/Wiring-FanWireRouting3.jpg)
 3. Slide in the bottom lid.
-4. Slide two honeycomb walls into the large channel in the middle of the box.  Fill the media bag about 1/2 full and test fit into the channel.  You want it full to the top but not tightly packed.  If the walls bow a little it'll be fine.  Note active carbon can be dusty so either wear gloves or make sure to wash your hands afterward.  Also in the image mine is a little too full but it should be fine. 
+4. Slide two honeycomb walls into the large channel in the middle of the box.  Fill the media bag about 1/2 full and test fit into the channel.  You want it full to the top but not tightly packed.  If the walls bow a little it'll be fine.  Note active carbon can be dusty so either wear gloves or make sure to wash your hands afterward.  Also in the image mine is a little too full but it should be fine. [Image](images/ActiveCarbonAdded.jpg)
 5. If using a pre-filter slide two honeycomb walls into the small channel nearest the back of the box.  Cut the pre-filter to size and slide it in between the walls.  Note I am not using the pre filter as I will be venting Bambu printers that already should be doing this but it's added in case you are.
 7. Screw on the mesh caps for the fan outputs.
 8. If you are hooking up to only one printer seal one of the intakes with the solid cap.
@@ -69,25 +69,25 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
    * After flashing, open the Serial Monitor (PlatformIO -> Monitor) to watch the status of your controller.
 
 # Initial Setup of the Controller
-1. By default the ESP32 will broadcast a wireless network called 'BambuAFE-Setup'.  Look for and connect to this WiFi network.
+1. By default the ESP32 will broadcast a wireless network called 'BambuAFE-Setup'.  Look for and connect to this WiFi network.  [Image](images/ConnectingToBuiltInWiFi.jpg)
 2. Once connected open up a web browser and navigate to the default webpage at 'http://192.168.4.1/'.
-3. Enter your WiFi SSID (your WiFi network name), WiFi password, a device name, and a password that will be used to access the device in the future, then click 'Save'.
+3. Enter your WiFi SSID (your WiFi network name), WiFi password, a device name, and a password that will be used to access the device in the future, then click 'Save'.  [Image](images/InitialSetup.jpg)
    * Leave the device name as BambuAFE-ESP32 unless you have a good reason to change it such as you have multiple controllers and want to make them BambuAFE-1 and BambuAFE-2.  Keep the name to 15 characters or less as this is a technical limit to the hostname.
-4. The ESP32 will reboot and connect to your WiFi.  You will see this in the monitor within VS Code.  If it does not connect see the section 'Resetting the Config'.
+4. The ESP32 will reboot and connect to your WiFi.  You will see this in the monitor within VS Code.  If it does not connect see the section 'Resetting the Config'.  [Image](images/ConfigSavedAndRebooting.jpg)
 
 # Configuring the AFE
-1. The controller should now be on your network.  Use either the controller's IP address such as 'http://192.168.1.162/' or the hostname such as 'http://BambuAFE-ESP32.local/'.  If the `.local` address does not work in your browser use the IP address instead — the IP address is always printed to the Serial Monitor when the controller boots.
-2. Enter `admin` as the username — this is the default hardcoded username for the controller and cannot be changed — and the password you configured during setup.
-3. By default you will get a status page.  Click the '⚙ Configuration' link at the top to change settings.
-4. Under the **Bambu Cloud Account** section you will need to sign in to link the controller to your Bambu account.  There are three ways to do this:
+1. The controller should now be on your network.  Use either the controller's IP address such as 'http://192.168.1.162/' or the hostname such as 'http://BambuAFE-ESP32.local/'.  If the `.local` address does not work in your browser use the IP address instead — the IP address is always printed to the Serial Monitor when the controller boots.  
+2. Enter `admin` as the username — this is the default hardcoded username for the controller and cannot be changed — and the password you configured during setup. [Image](images/LoginToController.jpg)
+3. By default you will get a status page.  Click the '⚙ Configuration' link at the top to change settings. [Image](images/InitialDashboard.jpg)
+4. Under the **Bambu Cloud Account** section you will need to sign in to link the controller to your Bambu account.  There are three ways to do this: [Image](images/CloudAccountSetup.jpg)
    1. **Option A — PowerShell script:** This is the recommended way for Windows users.
       1. Download `get_bambu_token.ps1` from the Configuration page on the controller — there is a download link in the Bambu Cloud Account section.
-         * Note: Depending on how your computer is setup you may have to right click the file and "Unblock" it before it will run.
+         * Note: Depending on how your computer is setup you may have to right click the file and "Unblock" it before it will run. [Image](images/UnblockPowershellFile.png)
       3. Open a [PowerShell 7](https://github.com/powershell/powershell/releases) window and navigate to the directory you saved the script to and execute it by typing `get_bambu_token.ps1` and pressing enter.
       4. Edge will open automatically — log in to your Bambu account and complete any Cloudflare check or 2FA if prompted.
       5. While leaving Edge open return to the PowerShell window and press ENTER once you are fully logged in.
-      6. The script will extract your token and offer to send it directly to the controller — enter your dashboard password when prompted.
-      7. Return to the configuration page and press F5 to refresh.  It should indicate that the token is saved with a green checkmark.
+      6. The script will extract your token and offer to send it directly to the controller — enter your dashboard password when prompted. [Image](images/PowershellResults.jpg)
+      7. Return to the configuration page and press F5 to refresh.  It should indicate that the token is saved with a green checkmark.  [Image](images/CloudAccountSaved.jpg)
    2. **Option B — Manual token entry:** This is a manual way to find your information within the browser cookies on your machine.
       1. Log into https://bambulab.com in your browser.
       2. Press F12 to open Developer Tools.
@@ -104,22 +104,22 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
 * Note: The access token expires approximately every 3 months.  When it expires repeat the same method to get a new one.
 
 5. For each printer:
-   1. Enter the printer's name.  This is for your own information and to see status later.
+   1. Enter the printer's name.  This is for your own information and to see status later. [Image](images/PrinterSetup.jpg)
    2. Enter the printer's serial number.  This can be found on a sticker on the back or bottom of the printer, or in Bambu Studio under the Device tab.
    3. Select the printer generation.  Gen 1 covers the X1C, P1S, P1P, A1, and A1 Mini.  Gen 2 covers the H2C, H2S, H2D, P2S, and X2D.
 6. On the same Configuration page scroll down to the **Fans** section:
-   1. Enter the minimum speed when either printer is printing.  The fans have a minimum so 8% is usually the lowest this should be set.
+   1. Enter the minimum speed when either printer is printing.  The fans have a minimum so 8% is usually the lowest this should be set.  [Image](images/FanSetup.jpg)
    2. Enter the maximum speed when one printer is actively exhausting (when the printer's exhaust fan is actively running).  The actual fan speed will scale between the minimum and this maximum based on the printer's exhaust speed.  This should be around 50%.
    3. Enter the maximum speed when two printers are actively exhausting.  The actual fan speed will scale between the minimum and this maximum based on the average exhaust level of both printers.  This should be around 100%.
 7. Click Save and the controller will apply your changes.
 8. Once everything is working unplug the ESP32 from your computer and plug the USB from the 12v to 5v power converter into the ESP32.  You can then close up the filter box, put the top cover on, and plug in the power supply.
 
-You cna now navigate to the Dashboard to see the status of your printers.  Note that Bambu only sends data when the printer is active so until you start a print or view the printer within Bambu Studio or Handy you may just see 0's or device offline.
+You can now navigate to the Dashboard to see the status of your printers.  Note that Bambu only sends data when the printer is active so until you start a print or view the printer within Bambu Studio or Handy you may just see 0's or device offline. [Image](images/DashboardWithPrinters.jpg)  [Image](images/FanAndControllerStatus.png)
    
 # Resetting the Config
 To reset and clear the controller, you can:
 1. Unplug the controller then hold the boot button — labeled BOOT on the board — for 3 seconds during power-on.
-2. Go into the Configuration screen, scroll to the Advanced section at the bottom, and click the 'Reset configuration…' button.
+2. Go into the Configuration screen, scroll to the Advanced section at the bottom, and click the 'Reset configuration…' button.  [Image](images/RebootAndReset.jpg)
 
 Once that is done you will have to go back through the **Initial Setup of the Controller** and **Configuring the AFE** sections above.
 
