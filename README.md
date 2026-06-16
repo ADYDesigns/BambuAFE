@@ -4,7 +4,7 @@ This project intends to reduce the amount of harmful gases produced during the 3
 Although this project was designed around two printers it can easily be used for one printer with no modifications other than printing a cap for the non-used intake. Using more than two printers is also possible but is an advanced use case requiring some modifications to the code to monitor more than two printers.
 
 # Bill of Materials
-This is a list of materials that will be required.  These are my suggestions to have a successful project but if you are already experienced with electronics and microcontrollers you can of course change the items as you see fit.   ![Alt text](images/Components.jpg)
+This is a list of materials that will be required.  These are my suggestions to have a successful project but if you are already experienced with electronics and microcontrollers you can of course change the items as you see fit.   ![Overview Image of Components](images/Components.jpg)
 
 - **Filter Box** - The filter box itself that will house all the other parts.  Download and print from MakerWorld: https://makerworld.com/en/@ADYDesigns/upload
 - **Exhaust System** - You will need a way to get the exhaust from your printer(s) over to this system.  I highly recommend https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2013378 as my system is designed to directly use that system's hose adapters.  In fact the threads on the front and back of my model are being used with permission from that project.
@@ -26,21 +26,21 @@ This is a list of materials that will be required.  These are my suggestions to 
 This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.
 
 1. Take the 3D printed filter box and start attaching your components:
-   1. Mount the breakout board to the box using 4x M3x6 self tapping screws.  Make sure GND is at the top right and 5v is at the bottom left.
-   2. Mount the panel mounted power connector through the hole under the breakout board using its supplied washer and nut.
+   1. Mount the breakout board to the box using 4x M3x6 self tapping screws.  Make sure GND is at the top right and 5v is at the bottom left.  ![Image](images/Mounting-BreakoutBoard.jpg)
+   2. Mount the panel mounted power connector through the hole under the breakout board using its supplied washer and nut.  ![Image](images/Mounting-BarrelConnector.jpg)
    3. Mount the two wire connectors above the power connector using 4x M3x6 self tapping screws.
-      * Note: You may want to skip these and attach them after you run the wires.  In the picture I just have them sitting in their place for reference.
-   4. Mount the 12v to 5v converter under the breakout board using 2x M3x6 self tapping screws.
+      * Note: You may want to skip these and attach them after you run the wires.  In this picture I just have them sitting in their place for reference. ![Image](images/Mounting-WireConnectors.jpg)
+   4. Mount the 12v to 5v converter under the breakout board using 2x M3x6 self tapping screws.  ![Image](images/Mounting-12vto5vConverter.jpg)
 2. Wire each of the components.
-   1. Wire the panel mounted power connector to the wire connectors.  Shorten the wires as needed or coil them up.  At this point you may want to label the power connectors P and N or + and -.
-   2. Wire the 12v to 5v converter to the power connectors.  In general Red is Positive (+) and Black is Negative (-) — check the labeling on your converter to confirm.
+   1. Wire the panel mounted power connector to the wire connectors.  Shorten the wires as needed or coil them up.  At this point you may want to label the power connectors P and N or + and -.  ![Image](images/Wiring-BarrelConnector.jpg)
+   2. Wire the 12v to 5v converter to the power connectors.  In general Red is Positive (+) and Black is Negative (-) — check the labeling on your converter to confirm.  [Image](images/Wiring-PowerConverter.jpg)
    3. Wire the fans' power wires to the power connectors. Depending on the fans you bought the connector should be labeled. Pin 1 should be ground (to the N or - power connector), Pin 2 should be +12v (to the P or + power connector), Pin 3 is not used, and Pin 4 is our PWM. Verify this information on the packaging or the manufacturer's website. These wires are small so you have a couple options:
-      1. Use a small screw driver and pop the metal connector out of the plastic plug.  This is the best option for the +12v and Ground wires as the metal connector will fit inside the power connectors when you flatten them down.
+      1. Use a small screw driver and pop the metal connector out of the plastic plug.  This is the best option for the +12v and Ground wires as the metal connector will fit inside the power connectors when you flatten them down.  [Image](images/Wiring-FanWires1.jpg)
       2. Cut the wire then carefully strip about 1/2 an inch of insulation off the end.  Double the bare wire back onto itself and wrap it around to make it thicker.
       * Note: You may also want to label these wires although you only really need to label wire 1 since they are connected in the ribbon and you will know it's 1 through 4.  Sometimes wire 1 will have markings on the wire itself like a dashed white line.
-   4. Wire the fans' PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO 16 and fan 2 uses GPIO 17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter as they both come on at the same time.  The wire will have to be stripped for this as the spot on the breakout board is pretty small.
-   5. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down.
-   6. Wrap the extra wire around the fan to pull back the slack and then mount the fans to the front using 4x M4x30 screws per fan.  The screws will help "hold" the wires to the fan housing.  You can also use wire ties, velcro straps, etc to hold the wires back.  Make sure they are exhausting out the front by looking at the blades.  They "scoop" the air when rotating.  For the Arctic P9 the air flow should be from the logo side to the non-logo side (logo will face inside the box).  This can always be flipped later.
+   4. Wire the fans' PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO 16 and fan 2 uses GPIO 17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter as they both come on at the same time.  The wire will have to be stripped for this as the spot on the breakout board is pretty small. [Image](images/Wiring-FanWires2.jpg)
+   5. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down.  [Image](images/Wiring-ESP32.jpg)
+   6. Wrap the extra wire around the fan to pull back the slack and then mount the fans to the front using 4x M4x30 screws per fan.  The screws will help "hold" the wires to the fan housing.  You can also use wire ties, velcro straps, etc to hold the wires back.  Make sure they are exhausting out the front by looking at the blades.  They "scoop" the air when rotating.  For the Arctic P9 the air flow should be from the logo side to the non-logo side (logo will face inside the box).  This can always be flipped later.  [Image](images/Wiring-FanWireRouting1.jpg)  [Image](images/Wiring-FanWireRouting2.jpg)  [Image](images/Wiring-FanWireRouting3.jpg)
 3. Slide in the bottom lid
 4. If using a pre-filter slide two honeycomb walls into the small channel nearest the back of the box.  Cut the pre-filter to size and slide it in between the walls.
 5. Slide two honeycomb walls into the large channel in the middle of the box.  Place the media bag in the channel and fill it with your active carbon, checking the level against the top of the channel.  You want it full to the top but not tightly packed.  Close the bag once full.
