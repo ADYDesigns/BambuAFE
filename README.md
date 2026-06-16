@@ -55,7 +55,7 @@ These instructions assume a standard Windows 10+ machine.  Please adjust for the
 Before plugging in the ESP32 you may need to install a USB driver so your computer can communicate with it.  The HiLetgo board uses a CP2102 USB chip.  Download and install the driver from https://www.silabs.com/software-and-tools/usb-to-uart-bridge-vcp-drivers?tab=downloads before continuing.  Without this driver Windows may not recognise the board when you plug it in.
 
 1. Open VS Code and then press CTRL+SHIFT+X or click the blocks/squares icon on the left sidebar.  In the Extensions search box enter PlatformIO and select 'PlatformIO IDE' and install it.  Once installed you may need to restart VS Code before the PlatformIO icon appears in the left sidebar.
-2. Download the code for this project by clicking the green 'Code' button on the GitHub project page and selecting 'Download ZIP'.
+2. Download the code for this project by clicking the green 'Code' button on the GitHub project page and selecting 'Download ZIP'.  [Image](images/DownloadZipFromGitHub.jpg)
 3. Unzip the zip file by right clicking it and selecting 'Extract all'.
 4. In VS Code select File -> Open Folder and select the folder you extracted the files to.
    * You will be prompted if you want to trust the author of the files.  Click 'Yes, I trust the authors'.
