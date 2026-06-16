@@ -113,6 +113,8 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
    3. Enter the maximum speed when two printers are actively exhausting.  The actual fan speed will scale between the minimum and this maximum based on the average exhaust level of both printers.  This should be around 100%.
 7. Click Save and the controller will apply your changes.
 8. Once everything is working unplug the ESP32 from your computer and plug the USB from the 12v to 5v power converter into the ESP32.  You can then close up the filter box, put the top cover on, and plug in the power supply.
+
+You cna now navigate to the Dashboard to see the status of your printers.  Note that Bambu only sends data when the printer is active so until you start a print or view the printer within Bambu Studio or Handy you may just see 0's or device offline.
    
 # Resetting the Config
 To reset and clear the controller, you can:
