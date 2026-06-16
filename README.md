@@ -21,11 +21,11 @@ This is a list of materials that will be required.  These are my suggestions to 
 - **Filter Bag** - A bag to hold the active carbon: https://www.amazon.com/dp/B09HQFZXSY
 - **Misc Hardware** - 10x M3x6 self tapping screws, 8x M4x30 screws, and a USB to Micro USB cable to connect the ESP32 directly to your computer for programming.
 - **Optional - Pre-Filter** - We are pulling from the exhaust which should already be filtered on a Bambu printer but is here in case you want to use this on a different printer or enclosure, as it will help keep dust and particles out of the active carbon.  Almost any thin filter material will do: https://www.lowes.com/pd/Frost-King-Common-15-in-x-24-in-x-0-1875-in-Actual-15-in-x-24-in-Washable-Cut-To-Fit-Air-Filter/1196229
-- **Optional - Intake Cap** - If you are hooking this up to a single prinnter you need to cap the extra intake.  Print out one of these:  Solid End Cap (No Airflow) (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated?profiled=2938064#profileId-2938064).
-- **Optional - Potentiometer** - A 10k potentiometer to manually control the fans.  See the "Setting up Manual Mode" section:  https://www.amazon.com/MTDELE-Potentiometer-Variable-Resistor-Connector/dp/B0D93WJJTR
+- **Optional - Intake Cap** - If you are hooking this up to a single printer you need to cap the extra intake.  Print out one of these:  Solid End Cap (No Airflow) (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated?profiled=2938064#profileId-2938064).
+- **Optional - Potentiometer** - A 10k potentiometer to manually control the fans.  See the "Setting up Manual Mode" section: https://www.amazon.com/MTDELE-Potentiometer-Variable-Resistor-Connector/dp/B0D93WJJTR
 
 # Assembly Guide
-This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.   [Image](images/Components.jpg)
+This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.  [Image](images/Components.jpg)
 
 1. Take the 3D printed filter box and start attaching your components:
    1. Mount the breakout board to the box using 4x M3x6 self tapping screws.  Make sure GND is at the top right and 5v is at the bottom left.  [Image](images/Mounting-BreakoutBoard.jpg)
@@ -43,7 +43,7 @@ This assembly guide is assuming you have everything from the bill of materials a
    4. Wire the fans' PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO 16 and fan 2 uses GPIO 17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter as they both come on at the same time.  The wire will have to be stripped for this as the spot on the breakout board is pretty small. [Image](images/Wiring-FanWires2.jpg)
    5. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down.  [Image](images/Wiring-ESP32.jpg)
    6. Wrap the extra wire around the fan to pull back the slack and then mount the fans to the front using 4x M4x30 screws per fan.  The screws will help "hold" the wires to the fan housing.  You can also use wire ties, velcro straps, etc to hold the wires back.  Make sure they are exhausting out the front by looking at the blades.  They "scoop" the air when rotating.  For the Arctic P9 the air flow should be from the logo side to the non-logo side (logo will face inside the box).  This can always be flipped later.  [Image](images/Wiring-FanWireRouting1.jpg)  [Image](images/Wiring-FanWireRouting2.jpg)  [Image](images/Wiring-FanWireRouting3.jpg)
-3. Slide in the bottom lid
+3. Slide in the bottom lid.
 4. If using a pre-filter slide two honeycomb walls into the small channel nearest the back of the box.  Cut the pre-filter to size and slide it in between the walls.
 5. Slide two honeycomb walls into the large channel in the middle of the box.  Place the media bag in the channel and fill it with your active carbon, checking the level against the top of the channel.  You want it full to the top but not tightly packed.  Close the bag once full.
 6. Screw on the mesh caps for the fan outputs.
@@ -126,4 +126,4 @@ At any time Bambu Lab may shut down the ability to get cloud data which will mak
 
 The way manual mode works is the controller is always looking for voltage on GPIO 18.  If it doesn't see at least ~0.3v it stays in automatic mode.  However, if it sees more than ~0.3v it goes into manual mode.  From that point on turning the potentiometer will ramp the fans up, turning the potentiometer back to zero turns the fans off and goes back to automatic.  The wiring for this is fairly simple: The wiper of the potentiometer goes to GPIO 18 while the other pins go to ground and 3.3v, all labeled on the breakout board.  Turning the dial past roughly 10% (about 0.3v) will initiate manual mode and beyond that point the fan will ramp up to 100%.  If you are using the potentiometer I recommended wire the red wire to positive (+), the black wire to negative (-), and the yellow wire to GPIO 18.
 
-If this function is needed simply drill a hole in the side of the enclosure, mount the potentiometer, and wire it in.
+If this function is needed, simply drill a hole in the side of the enclosure, mount the potentiometer, and wire it in.
