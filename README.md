@@ -4,7 +4,7 @@ This project intends to reduce the amount of harmful gases produced during the 3
 Although this project was designed around two printers it can easily be used for one printer with no modifications other than printing a cap for the non-used intake. Using more than two printers is also possible but is an advanced use case requiring some modifications to the code to monitor more than two printers.
 
 # Bill of Materials
-This is a list of materials that will be required.  These are my suggestions to have a successful project but if you are already experienced with electronics and microcontrollers you can of course change the items as you see fit. [Overview Image of Components](images/Components.jpg)
+This is a list of materials that will be required.  These are my suggestions to have a successful project but if you are already experienced with electronics and microcontrollers you can of course change the items as you see fit.
 
 - **Filter Box** - The filter box itself that will house all the other parts.  Download and print from MakerWorld: https://makerworld.com/en/@ADYDesigns/upload
 - **Exhaust System** - You will need a way to get the exhaust from your printer(s) over to this system.  I highly recommend https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2013378 as my system is designed to directly use that system's hose adapters.  In fact the threads on the front and back of my model are being used with permission from that project.
@@ -23,7 +23,7 @@ This is a list of materials that will be required.  These are my suggestions to 
 - **Optional - Potentiometer** - A 10k potentiometer to manually control the fans.  See the "Setting up Manual Mode" section:  https://www.amazon.com/MTDELE-Potentiometer-Variable-Resistor-Connector/dp/B0D93WJJTR
 
 # Assembly Guide
-This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.
+This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.   [Image](images/Components.jpg)
 
 1. Take the 3D printed filter box and start attaching your components:
    1. Mount the breakout board to the box using 4x M3x6 self tapping screws.  Make sure GND is at the top right and 5v is at the bottom left.  [Image](images/Mounting-BreakoutBoard.jpg)
