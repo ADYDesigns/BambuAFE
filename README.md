@@ -4,7 +4,7 @@ This project intends to reduce the amount of harmful gases produced during the 3
 Although this project was designed around two printers it can easily be used for one printer with no modifications other than printing a cap for the non-used intake. Using more than two printers is also possible but is an advanced use case requiring some modifications to the code to monitor more than two printers.
 
 # Bill of Materials
-This is a list of materials that will be required.  These are my suggestions to have a successful project but if you are already experienced with electronics and microcontrollers you can of course change the items as you see fit.
+This is a list of materials that will be required.  These are my suggestions to have a successful project but if you are already experienced with electronics and microcontrollers you can of course change the items as you see fit.   ![Alt text](images/Components.jpg)
 
 - **Filter Box** - The filter box itself that will house all the other parts.  Download and print from MakerWorld: https://makerworld.com/en/@ADYDesigns/upload
 - **Exhaust System** - You will need a way to get the exhaust from your printer(s) over to this system.  I highly recommend https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2013378 as my system is designed to directly use that system's hose adapters.  In fact the threads on the front and back of my model are being used with permission from that project.
