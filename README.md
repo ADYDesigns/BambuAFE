@@ -17,7 +17,6 @@ This is a list of materials that will be required.  These are my suggestions to 
 - **Wire connectors** - You can also solder or wire nut the wires but this simplifies the wiring: https://www.amazon.com/dp/B0DGPXWJ28
 - **Fans** - Any high static pressure 92mm fan will work such as the Arctic P9 Max or Noctua NF-A9 PWM.  I went with the Arctic P9's: https://www.amazon.com/dp/B0D4YZFKP5
 - **Active Carbon** - This is doing the majority of the work here and is the most important part.  You can buy loose active carbon from multiple sources such as a pet store but I went with one made for air filtration: https://www.amazon.com/dp/B0CFCKFPHR
-  * Note: Most active carbon should be washed and fully dried before being used.  Check the instructions on the packaging.
 - **Filter Bag** - A bag to hold the active carbon: https://www.amazon.com/dp/B09HQFZXSY
 - **Misc Hardware** - 10x M3x6 self tapping screws, 8x M4x30 screws, and a USB to Micro USB cable to connect the ESP32 directly to your computer for programming.
 - **Optional - Pre-Filter** - We are pulling from the exhaust which should already be filtered on a Bambu printer but is here in case you want to use this on a different printer or enclosure, as it will help keep dust and particles out of the active carbon.  Almost any thin filter material will do: https://www.lowes.com/pd/Frost-King-Common-15-in-x-24-in-x-0-1875-in-Actual-15-in-x-24-in-Washable-Cut-To-Fit-Air-Filter/1196229
@@ -44,10 +43,10 @@ This assembly guide is assuming you have everything from the bill of materials a
    5. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down.  [Image](images/Wiring-ESP32.jpg)
    6. Wrap the extra wire around the fan to pull back the slack and then mount the fans to the front using 4x M4x30 screws per fan.  The screws will help "hold" the wires to the fan housing.  You can also use wire ties, velcro straps, etc to hold the wires back.  Make sure they are exhausting out the front by looking at the blades.  They "scoop" the air when rotating.  For the Arctic P9 the air flow should be from the logo side to the non-logo side (logo will face inside the box).  This can always be flipped later.  [Image](images/Wiring-FanWireRouting1.jpg)  [Image](images/Wiring-FanWireRouting2.jpg)  [Image](images/Wiring-FanWireRouting3.jpg)
 3. Slide in the bottom lid.
-4. If using a pre-filter slide two honeycomb walls into the small channel nearest the back of the box.  Cut the pre-filter to size and slide it in between the walls.
-5. Slide two honeycomb walls into the large channel in the middle of the box.  Place the media bag in the channel and fill it with your active carbon, checking the level against the top of the channel.  You want it full to the top but not tightly packed.  Close the bag once full.
-6. Screw on the mesh caps for the fan outputs.
-7. If you are hooking up to only one printer seal one of the intakes with the solid cap.
+4. Slide two honeycomb walls into the large channel in the middle of the box.  Fill the media bag about 1/2 full and test fit into the channel.  You want it full to the top but not tightly packed.  If the walls bow a little it'll be fine.  Note active carbon can be dusty so either wear gloves or make sure to wash your hands afterward.
+5. If using a pre-filter slide two honeycomb walls into the small channel nearest the back of the box.  Cut the pre-filter to size and slide it in between the walls.  Note I am not using the pre filter as I will be venting Bambu printers that already should be doing this but it's added in case you are.
+7. Screw on the mesh caps for the fan outputs.
+8. If you are hooking up to only one printer seal one of the intakes with the solid cap.
 
 # Installing the Software and Flashing the Controller
 For the programming side I will be using the free Microsoft Visual Studio Code program available at https://code.visualstudio.com/.  You can also use the Arduino IDE if you are familiar with that but these instructions will use VS Code.
