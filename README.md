@@ -112,7 +112,7 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
    2. Enter the maximum speed when one printer is actively exhausting (when the printer's exhaust fan is actively running).  The actual fan speed will scale between the minimum and this maximum based on the printer's exhaust speed.  This should be around 50%.
    3. Enter the maximum speed when two printers are actively exhausting.  The actual fan speed will scale between the minimum and this maximum based on the average exhaust level of both printers.  This should be around 100%.
 7. Click Save and the controller will apply your changes.
-8. Once everything is working unplug the ESP32 from your computer and plug the USB from the 12v to 5v power converter into the ESP32.  You cna then close up the filter box and put the top cover on.
+8. Once everything is working unplug the ESP32 from your computer and plug the USB from the 12v to 5v power converter into the ESP32.  You can then close up the filter box and put the top cover on.
    
 # Resetting the Config
 To reset and clear the controller, you can:
