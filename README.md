@@ -86,7 +86,7 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
       3. Open a [PowerShell 7](https://github.com/powershell/powershell/releases) window and navigate to the directory you saved the script to and execute it by typing `get_bambu_token.ps1` and pressing enter.
       4. Edge will open automatically — log in to your Bambu account and complete any Cloudflare check or 2FA if prompted.
       5. While leaving Edge open return to the PowerShell window and press ENTER once you are fully logged in.
-      6. The script will extract your token and offer to send it directly to the controller — enter your dashboard password when prompted. [Image](images/PowershellResults.jpg)
+      6. The script will extract your token and offer to send it directly to the controller — enter your dashboard password when prompted. [Image](images/PowershellResults.png)
       7. Return to the configuration page and press F5 to refresh.  It should indicate that the token is saved with a green checkmark.  [Image](images/CloudAccountSaved.jpg)
    2. **Option B — Manual token entry:** This is a manual way to find your information within the browser cookies on your machine.
       1. Log into https://bambulab.com in your browser.
