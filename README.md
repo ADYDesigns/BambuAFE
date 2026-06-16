@@ -26,13 +26,13 @@ This is a list of materials that will be required.  These are my suggestions to 
 This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.
 
 1. Take the 3D printed filter box and start attaching your components:
-   1. Mount the breakout board to the box using 4x M3x6 self tapping screws.  Make sure GND is at the top right and 5v is at the bottom left.  ![Image](images/Mounting-BreakoutBoard.jpg)
-   2. Mount the panel mounted power connector through the hole under the breakout board using its supplied washer and nut.  ![Image](images/Mounting-BarrelConnector.jpg)
+   1. Mount the breakout board to the box using 4x M3x6 self tapping screws.  Make sure GND is at the top right and 5v is at the bottom left.  [Image](images/Mounting-BreakoutBoard.jpg)
+   2. Mount the panel mounted power connector through the hole under the breakout board using its supplied washer and nut.  [Image](images/Mounting-BarrelConnector.jpg)
    3. Mount the two wire connectors above the power connector using 4x M3x6 self tapping screws.
-      * Note: You may want to skip these and attach them after you run the wires.  In this picture I just have them sitting in their place for reference. ![Image](images/Mounting-WireConnectors.jpg)
-   4. Mount the 12v to 5v converter under the breakout board using 2x M3x6 self tapping screws.  ![Image](images/Mounting-12vto5vConverter.jpg)
+      * Note: You may want to skip these and attach them after you run the wires.  In this picture I just have them sitting in their place for reference. [Image](images/Mounting-WireConnectors.jpg)
+   4. Mount the 12v to 5v converter under the breakout board using 2x M3x6 self tapping screws.  [Image](images/Mounting-12vto5vConverter.jpg)
 2. Wire each of the components.
-   1. Wire the panel mounted power connector to the wire connectors.  Shorten the wires as needed or coil them up.  At this point you may want to label the power connectors P and N or + and -.  ![Image](images/Wiring-BarrelConnector.jpg)
+   1. Wire the panel mounted power connector to the wire connectors.  Shorten the wires as needed or coil them up.  At this point you may want to label the power connectors P and N or + and -.  [Image](images/Wiring-BarrelConnector.jpg)
    2. Wire the 12v to 5v converter to the power connectors.  In general Red is Positive (+) and Black is Negative (-) — check the labeling on your converter to confirm.  [Image](images/Wiring-PowerConverter.jpg)
    3. Wire the fans' power wires to the power connectors. Depending on the fans you bought the connector should be labeled. Pin 1 should be ground (to the N or - power connector), Pin 2 should be +12v (to the P or + power connector), Pin 3 is not used, and Pin 4 is our PWM. Verify this information on the packaging or the manufacturer's website. These wires are small so you have a couple options:
       1. Use a small screw driver and pop the metal connector out of the plastic plug.  This is the best option for the +12v and Ground wires as the metal connector will fit inside the power connectors when you flatten them down.  [Image](images/Wiring-FanWires1.jpg)
