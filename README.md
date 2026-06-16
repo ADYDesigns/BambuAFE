@@ -33,7 +33,7 @@ This assembly guide is assuming you have everything from the bill of materials a
    3. Mount the two wire connectors above the power connector using 4x M3x6 self tapping screws.
       * Note: You may want to skip these and attach them after you run the wires.  In this picture I just have them sitting in their place for reference. [Image](images/Mounting-WireConnectors.jpg)
    4. Mount the 12v to 5v converter under the breakout board using 2x M3x6 self tapping screws.  [Image](images/Mounting-12vto5vConverter.jpg)
-2. Wire each of the components.
+2. Wire each of the components:
    1. Wire the panel mounted power connector to the wire connectors.  Shorten the wires as needed or coil them up.  At this point you may want to label the power connectors P and N or + and -.  [Image](images/Wiring-BarrelConnector.jpg)
    2. Wire the 12v to 5v converter to the power connectors.  In general Red is Positive (+) and Black is Negative (-) — check the labeling on your converter to confirm.  [Image](images/Wiring-PowerConverter.jpg)
    3. Wire the fans' power wires to the power connectors. Depending on the fans you bought the connector should be labeled. Pin 1 should be ground (to the N or - power connector), Pin 2 should be +12v (to the P or + power connector), Pin 3 is not used, and Pin 4 is our PWM. Verify this information on the packaging or the manufacturer's website. These wires are small so you have a couple options:
