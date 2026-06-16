@@ -1,3 +1,4 @@
+<img width="3366" height="2658" alt="20260615_193214" src="https://github.com/user-attachments/assets/985619f6-bc96-4f25-b0eb-9a32cf9b0a43" />
 # Bambu Automatic Fume Extractor (BambuAFE)
 This project intends to reduce the amount of harmful gases produced during the 3D printing process by creating a slight negative pressure in the chamber to reduce or eliminate them leaking out.  It does this by automatically controlling a fume extractor fan based on what your Bambu printers are doing.  It uses a 3D printed filter box with active charcoal and an ESP32 to poll one or two Bambu printers for status information and ramp a set of fans up and down based on the printer status.  It also gives basic printer status information through a dashboard.
 
@@ -26,21 +27,33 @@ This is a list of materials that will be required.  These are my suggestions to 
 This assembly guide is assuming you have everything from the bill of materials above.  If you made any changes please follow the instructions for your equipment.
 
 1. Take the 3D printed filter box and start attaching your components:
-   1. Mount the breakout board to the box using 4x M3x6 self tapping screws.  Make sure GND is at the top right and 5v is at the bottom left.
+   1. Mount the breakout board to the box using 4x M3x6 self tapping screws.  Make sure GND is at the top right and 5v is at the bottom left.<img width="3366" height="2658" alt="20260615_193214" src="https://github.com/user-attachments/assets/00f785ec-b6cb-4b32-9d07-62ca994ffbad" />
+   <img width="3071" height="2725" alt="20260615_193454" src="https://github.com/user-attachments/assets/2142887f-0f59-45b2-88ad-be357acf34d3" />
+
    2. Mount the panel mounted power connector through the hole under the breakout board using its supplied washer and nut.
+<img width="3042" height="2358" alt="20260615_193327" src="https://github.com/user-attachments/assets/34887234-71c4-4e35-b5f1-b2a43d64572e" />
+
    3. Mount the two wire connectors above the power connector using 4x M3x6 self tapping screws.
-      * Note: You may want to skip these and attach them after you run the wires.
-   4. Mount the 12v to 5v converter under the breakout board using 2x M3x6 self tapping screws.
+      * Note: You may want to skip these and attach them after you run the wires.  In the picture I just have them sitting in their place for reference.<img width="2907" height="2247" alt="20260615_193410" src="https://github.com/user-attachments/assets/1ac1cd6b-d913-4965-8c37-1496e0cf0d67" />
+
+   4. Mount the 12v to 5v converter under the breakout board using 2x M3x6 self tapping screws. <img width="2842" height="2559" alt="20260615_195750" src="https://github.com/user-attachments/assets/2d9909d3-c7df-437e-8e12-cadee0e54828" />
+
 2. Wire each of the components.
    1. Wire the panel mounted power connector to the wire connectors.  Shorten the wires as needed or coil them up.  At this point you may want to label the power connectors P and N or + and -.
-   2. Wire the 12v to 5v converter to the power connectors.  In general Red is Positive (+) and Black is Negative (-) — check the labeling on your converter to confirm.
+<img width="3071" height="2725" alt="20260615_193454" src="https://github.com/user-attachments/assets/7c8dbef5-5604-4078-a947-37b2fc48dffa" />
+
+   2. Wire the 12v to 5v converter to the power connectors.  In general Red is Positive (+) and Black is Negative (-) — check the labeling on your converter to confirm.<img width="2864" height="2530" alt="20260615_195833" src="https://github.com/user-attachments/assets/b3f51930-7650-44c7-9b55-d5277f97a678" />
    3. Wire the fans' power wires to the power connectors. Depending on the fans you bought the connector should be labeled. Pin 1 should be ground (to the N or - power connector), Pin 2 should be +12v (to the P or + power connector), Pin 3 is not used, and Pin 4 is our PWM. Verify this information on the packaging or the manufacturer's website. These wires are small so you have a couple options:
-      1. Use a small screw driver and pop the metal connector out of the plastic plug.  This is the best option for the +12v and Ground wires as the metal connector will fit inside the power connectors when you flatten them down.
+      1. Use a small screw driver and pop the metal connector out of the plastic plug.  This is the best option for the +12v and Ground wires as the metal connector will fit inside the power connectors when you flatten them down. <img width="2858" height="2358" alt="20260615_200604" src="https://github.com/user-attachments/assets/23bbdc1f-68cc-4129-9f99-75c304ec9628" />
+
+
       2. Cut the wire then carefully strip about 1/2 an inch of insulation off the end.  Double the bare wire back onto itself and wrap it around to make it thicker.
       * Note: You may also want to label these wires although you only really need to label wire 1 since they are connected in the ribbon and you will know it's 1 through 4.  Sometimes wire 1 will have markings on the wire itself like a dashed white line.
-   4. Wire the fans' PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO 16 and fan 2 uses GPIO 17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter as they both come on at the same time.  The wire will have to be stripped for this as the spot on the breakout board is pretty small.
-   5. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down.
-   6. Wrap the extra wire around the fan to pull back the slack and then mount the fans to the front using 4x M4x30 screws per fan.  The screws will help "hold" the wires to the fan housing.  You can also use wire ties, velcro straps, etc to hold the wires back.  Make sure they are exhausting out the front by looking at the blades.  They "scoop" the air when rotating.  For the Arctic P9 the air flow should be from the logo side to the non-logo side (logo will face inside the box).  This can always be flipped later.  
+   4. Wire the fans' PWM wire to the breakout board.  Each fan gets its own wire — by default fan 1 uses GPIO 16 and fan 2 uses GPIO 17, which should be labeled as 16 and 17 on the breakout board.  The order doesn't matter as they both come on at the same time.  The wire will have to be stripped for this as the spot on the breakout board is pretty small. <img width="2765" height="1915" alt="20260615_200027" src="https://github.com/user-attachments/assets/3ef2ad74-f2c1-49b4-84bd-28cac34b3fcf" />
+   5. Mount the ESP32 to the breakout board.  Verify it matches the breakout board and in general the USB port should be facing down. <img width="2436" height="2125" alt="20260615_200645" src="https://github.com/user-attachments/assets/dce268b0-d6ee-4664-97f2-94457c6be2c8" />
+
+   6. Wrap the extra wire around the fan to pull back the slack and then mount the fans to the front using 4x M4x30 screws per fan.  The screws will help "hold" the wires to the fan housing.  You can also use wire ties, velcro straps, etc to hold the wires back.  Make sure they are exhausting out the front by looking at the blades.  They "scoop" the air when rotating.  For the Arctic P9 the air flow should be from the logo side to the non-logo side (logo will face inside the box).  This can always be flipped later.  <img width="3439" height="2481" alt="20260615_201142" src="https://github.com/user-attachments/assets/f375e97e-c867-4093-95e1-8ad941e78a5e" />  <img width="3360" height="2829" alt="20260615_201146" src="https://github.com/user-attachments/assets/3da9f45e-f1df-4b72-ba9e-6f743aec638f" />  <img width="3475" height="2633" alt="20260615_201157" src="https://github.com/user-attachments/assets/6c38b3b9-7c74-42ae-9dfe-fd7f986ce398" />
+
 3. Slide in the bottom lid
 4. If using a pre-filter slide two honeycomb walls into the small channel nearest the back of the box.  Cut the pre-filter to size and slide it in between the walls.
 5. Slide two honeycomb walls into the large channel in the middle of the box.  Place the media bag in the channel and fill it with your active carbon, checking the level against the top of the channel.  You want it full to the top but not tightly packed.  Close the bag once full.
