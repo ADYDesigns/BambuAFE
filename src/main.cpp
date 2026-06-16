@@ -46,7 +46,7 @@
 
 #define BAMBU_CLOUD_PORT   8883
 #define MQTT_RECONNECT_MS  15000
-#define POT_PIN            18
+#define POT_PIN            35
 
 // ─── Global objects ────────────────────────────────────────────────────────
 WebServer        server(80);
