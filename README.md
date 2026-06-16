@@ -8,7 +8,7 @@ This is a list of materials that will be required.  These are my suggestions to 
 
 - **Filter Box** - The filter box itself that will house all the other parts.  Download and print from MakerWorld: https://makerworld.com/en/@ADYDesigns/upload
 - **Exhaust System** - You will need a way to get the exhaust from your printer(s) over to this system.  I highly recommend https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2013378 as my system is designed to directly use that system's hose adapters.  In fact the threads on the front and back of my model are being used with permission from that project.
-- **Mesh Caps** - Print two of these so you don't accidentally stick your fingers in the fan blades — End Cap with Gyroid Mesh (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2606325).
+- **Mesh Caps** - Print two of these to reduce the risk of accidentally contacting the fan blades — End Cap with Gyroid Mesh (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2606325).
 - **ESP32-WROOM controller** - Any ESP32 board should work but the board I'm using is the HiLetgo ESP-WROOM-32 development board with the pins on the bottom: https://www.amazon.com/dp/B0718T232Z
 - **Breakout board** - If you are comfortable soldering you don't need this but it makes wiring and mounting much easier: https://www.amazon.com/dp/B0BYS6THLF
 - **12 volt power supply** - Anything to cover the power usage of the ESP32 and the fans which combined at max power shouldn't be more than about 1.5A: https://www.amazon.com/dp/B07VQHCK6P
