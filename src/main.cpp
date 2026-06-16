@@ -35,7 +35,7 @@
 #define AP_SSID            "BambuAFE-Setup"
 #define AP_PASSWORD        ""
 #define CONFIG_FILE        "/config.json"
-#define FIRMWARE_VERSION   "0.9.0"
+#define FIRMWARE_VERSION   "0.9.8"
 
 #define FAN1_PIN           16
 #define FAN2_PIN           17
