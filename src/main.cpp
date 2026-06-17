@@ -82,9 +82,6 @@ struct PrinterState {
   char  gcode_state[32]   = "offline";
   int   progress          = 0;
   int   remaining_min     = 0;
-  float nozzle_temp       = 0.0f;
-  float bed_temp          = 0.0f;
-  float chamber_temp      = 0.0f;
   bool  exhausting        = false;
   int   exhaust_fan_speed = 0;
   bool  connected         = false;
@@ -106,7 +103,7 @@ unsigned long runtimeSecondAcc  = 0;   // accumulated milliseconds toward the ne
 #define RUNTIME_SAVE_MS    600000      // save every 10 minutes
 
 // ══════════════════════════════════════════════════════════════════════════
-//  Potentiometer — manual fan override on GPIO 18
+//  Potentiometer — manual fan override on GPIO 35
 //  Returns 0-100 if pot is connected, -1 if not detected
 // ══════════════════════════════════════════════════════════════════════════
 
@@ -196,13 +193,11 @@ bool hasValidToken() {
 
 void parseGen1Payload(JsonObject& print, PrinterState& state) {
   // Gen 1: X1C, P1S, P1P, A1, A1 Mini
-  // Fields: gcode_state, mc_percent, mc_remaining_time, nozzle_temper,
-  //         bed_temper, exhaust_fan_speed, big_fan2_speed
+  // Fields: gcode_state, mc_percent, mc_remaining_time,
+  //         exhaust_fan_speed, big_fan2_speed
   const char* cmd = print["command"] | "";
   bool hasStatusData = !print["gcode_state"].isNull()      ||
                        !print["mc_percent"].isNull()        ||
-                       !print["nozzle_temper"].isNull()     ||
-                       !print["bed_temper"].isNull()        ||
                        !print["exhaust_fan_speed"].isNull() ||
                        !print["big_fan2_speed"].isNull();
 
@@ -213,10 +208,6 @@ void parseGen1Payload(JsonObject& print, PrinterState& state) {
   if (!print["gcode_state"].isNull())       strlcpy(state.gcode_state, print["gcode_state"] | "IDLE", sizeof(state.gcode_state));
   if (!print["mc_percent"].isNull())        state.progress      = print["mc_percent"].as<int>();
   if (!print["mc_remaining_time"].isNull()) state.remaining_min = print["mc_remaining_time"].as<int>();
-  if (!print["nozzle_temper"].isNull())     state.nozzle_temp   = print["nozzle_temper"].as<float>();
-  if (!print["bed_temper"].isNull())        state.bed_temp      = print["bed_temper"].as<float>();
-  if (!print["device"]["ctc"]["info"]["temp"].isNull())
-    state.chamber_temp = print["device"]["ctc"]["info"]["temp"].as<float>();
   if (!print["exhaust_fan_speed"].isNull()) {
     state.exhaust_fan_speed = print["exhaust_fan_speed"].as<int>();
     state.exhausting        = (state.exhaust_fan_speed > 0);
@@ -230,12 +221,11 @@ void parseGen1Payload(JsonObject& print, PrinterState& state) {
 
 void parseGen2Payload(JsonObject& print, PrinterState& state) {
   // Gen 2: H2C, H2S, H2D, P2S, X2D
-  // Fields are reported differently — status comes via device.extruder
-  // gcode_state, mc_percent etc. may still appear in some messages
+  // Status is inferred from mc_percent, layer_num, and the airduct exhaust fan
+  // gcode_state and mc_percent may still appear in some messages
   const char* cmd = print["command"] | "";
   bool hasStatusData = !print["gcode_state"].isNull()        ||
                        !print["mc_percent"].isNull()          ||
-                       !print["nozzle_temper"].isNull()       ||
                        !print["device"]["extruder"].isNull()  ||
                        !print["device"]["airduct"].isNull()   ||
                        !print["layer_num"].isNull()           ||
@@ -267,17 +257,6 @@ void parseGen2Payload(JsonObject& print, PrinterState& state) {
     if (strcmp(state.gcode_state, "offline") == 0 || strcmp(state.gcode_state, "IDLE") == 0)
       strlcpy(state.gcode_state, "RUNNING", sizeof(state.gcode_state));
   }
-  if (!print["nozzle_temper"].isNull())     state.nozzle_temp   = print["nozzle_temper"].as<float>();
-  if (!print["bed_temper"].isNull())
-    state.bed_temp = print["bed_temper"].as<float>();
-  else if (!print["device"]["bed"]["info"]["temp"].isNull()) {
-    int rawTemp = print["device"]["bed"]["info"]["temp"].as<int>();
-    state.bed_temp = (rawTemp > 65536) ? (float)(rawTemp / 65536) : (float)rawTemp;
-  }
-  if (!print["device"]["ctc"]["info"]["temp"].isNull()) {
-    int rawTemp = print["device"]["ctc"]["info"]["temp"].as<int>();
-    state.chamber_temp = (rawTemp > 65536) ? (float)(rawTemp / 65536) : (float)rawTemp;
-  }
   if (!print["exhaust_fan_speed"].isNull()) {
     state.exhaust_fan_speed = print["exhaust_fan_speed"].as<int>();
     state.exhausting        = (state.exhaust_fan_speed > 0);
@@ -292,23 +271,6 @@ void parseGen2Payload(JsonObject& print, PrinterState& state) {
         state.exhaust_fan_speed = fanState;
         state.exhausting        = (fanState > 0);
         break;
-      }
-    }
-  }
-  // info array: id=0 (right/inactive), id=1 (left/active)
-  // temp = nozzle temp, packed as raw / 65536 = °C for large values
-  JsonArray extruderInfo = print["device"]["extruder"]["info"];
-  if (!extruderInfo.isNull()) {
-    for (JsonObject ext : extruderInfo) {
-      int id   = ext["id"]   | -1;
-      int temp = ext["temp"] | 0;
-
-      if (id == 1) {
-        // Nozzle temp is packed as value / 65536
-        if (temp > 65536)
-          state.nozzle_temp = (float)(temp / 65536);
-        else if (state.nozzle_temp == 0.0f && temp > 0 && temp < 500)
-          state.nozzle_temp = (float)temp;
       }
     }
   }
@@ -681,9 +643,6 @@ void handlePrinterStatus() {
     obj["gcode_state"]   = s.gcode_state;
     obj["progress"]      = s.progress;
     obj["remaining_min"] = s.remaining_min;
-    obj["nozzle_temp"]   = serialized(String(s.nozzle_temp, 1));
-    obj["bed_temp"]      = serialized(String(s.bed_temp, 1));
-    obj["chamber_temp"]  = serialized(String(s.chamber_temp, 1));
     obj["exhausting"]    = s.exhausting;
     obj["exhaust_pct"]   = exhaustPct;
   };
