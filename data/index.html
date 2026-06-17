@@ -353,11 +353,8 @@
         </div>
         <div class="printer-stats">
           <div class="stat"><div class="stat-val">${pct}%</div><div class="stat-lbl">Progress</div></div>
-          <div class="stat"><div class="stat-val">${p.nozzle_temp}°C</div><div class="stat-lbl">Nozzle</div></div>
-          <div class="stat"><div class="stat-val">${p.bed_temp}°C</div><div class="stat-lbl">Bed</div></div>
           <div class="stat"><div class="stat-val">${remain}</div><div class="stat-lbl">Remaining</div></div>
           <div class="stat"><div class="stat-val">${p.exhaust_pct}%</div><div class="stat-lbl">Exhaust</div></div>
-          <div class="stat"><div class="stat-val">${p.chamber_temp}°C</div><div class="stat-lbl">Chamber</div></div>
         </div>
         ${p.exhausting ? '<div class="exhaust-indicator"><div class="exhaust-dot"></div> Exhausting</div>' : ''}`;
     }
