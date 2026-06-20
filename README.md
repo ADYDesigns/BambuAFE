@@ -8,7 +8,7 @@ Although this project was designed around two printers it can easily be used for
 # Bill of Materials
 This is a list of materials that will be required.  These are my suggestions to have a successful project but if you are already experienced with electronics and microcontrollers you can of course change the items as you see fit.
 
-- **Filter Box** - The filter box itself that will house all the other parts.  Download and print from MakerWorld: https://makerworld.com/en/@ADYDesigns/upload
+- **Filter Box** - The filter box itself that will house all the other parts.  Download and print from MakerWorld: [https://makerworld.com/en/@ADYDesigns/upload](https://makerworld.com/en/models/2954045-bambu-automatic-fume-extractor-active-carbon)
 - **Exhaust System** - You will need a way to get the exhaust from your printer(s) over to this system.  I highly recommend https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2013378 as my system is designed to directly use that system's hose adapters.  In fact the threads on the front and back of my model are being used with permission from that project.
 - **Mesh Caps** - Print two of these to reduce the risk of accidentally contacting the fan blades — End Cap with Gyroid Mesh (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2606325).
 - **ESP32-WROOM controller** - Any ESP32 board should work but the board I'm using is the HiLetgo ESP-WROOM-32 development board with the pins on the bottom: https://www.amazon.com/dp/B0718T232Z
