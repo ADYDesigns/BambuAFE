@@ -51,9 +51,7 @@ This assembly guide is assuming you have everything from the bill of materials a
 8. If you are hooking up to only one printer seal one of the intakes with the solid cap.
 
 # Installing the Software and Flashing the Controller
-For the programming side I will be using the free Microsoft Visual Studio Code program available at https://code.visualstudio.com/.  You can also use the Arduino IDE if you are familiar with that but these instructions will use VS Code.
-
-These instructions assume a standard Windows 10+ machine.  Please adjust for the system you are using.
+For the programming side I will be using the free Microsoft Visual Studio Code program available at https://code.visualstudio.com/. You can also use the Arduino IDE if you are familiar with that but these instructions will use VS Code on a standard Windows 10+ machine. Please adjust for the system you are using.
 
 Before plugging in the ESP32 you may need to install a USB driver so your computer can communicate with it.  The HiLetgo board uses a CP2102 USB chip.  Download and install the driver from https://www.silabs.com/software-and-tools/usb-to-uart-bridge-vcp-drivers?tab=downloads before continuing.  Without this driver Windows may not recognise the board when you plug it in.
 
