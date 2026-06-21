@@ -642,7 +642,10 @@ void handlePrinterStatus() {
     obj["connected"]     = s.connected;
     obj["gcode_state"]   = s.gcode_state;
     obj["progress"]      = s.progress;
-    obj["remaining_min"] = s.remaining_min;
+    bool noTimeState = (strcmp(s.gcode_state, "FINISH") == 0 ||
+                        strcmp(s.gcode_state, "IDLE") == 0 ||
+                        strcmp(s.gcode_state, "offline") == 0);
+    obj["remaining_min"] = noTimeState ? 0 : s.remaining_min;
     obj["exhausting"]    = s.exhausting;
     obj["exhaust_pct"]   = exhaustPct;
   };
@@ -667,9 +670,9 @@ void handleConfigGet() {
   doc["printer2_name"]           = cfg.printer2_name;
   doc["printer2_serial"]         = cfg.printer2_serial;
   doc["printer2_gen"]            = cfg.printer2_gen;
-  doc["fan_speed_printing"]          = cfg.fan_speed_printing;
-  doc["fan_speed_one_exhausting"]    = cfg.fan_speed_one_exhausting;
-  doc["fan_speed_both_exhausting"]   = cfg.fan_speed_both_exhausting;
+  doc["fan_speed_printing"]      = cfg.fan_speed_printing;
+  doc["fan_speed_one_exhausting"] = cfg.fan_speed_one_exhausting;
+  doc["fan_speed_both_exhausting"] = cfg.fan_speed_both_exhausting;
   String json; serializeJson(doc, json);
   server.send(200, "application/json", json);
 }
