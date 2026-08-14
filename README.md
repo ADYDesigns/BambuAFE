@@ -8,7 +8,7 @@ Although this project was designed around two printers it can easily be used for
 # Bill of Materials
 This is a list of materials that will be required.  These are my suggestions to have a successful project but if you are already experienced with electronics and microcontrollers you can of course change the items as you see fit.
 
-- **Filter Box** - The filter box itself that will house all the other parts.  Download and print from MakerWorld: https://makerworld.com/en/models/2954045-bambu-automatic-fume-extractor-active-carbon
+- **Filter Box** - The filter box itself that will house all the other parts.  Download and print from MakerWorld: https://makerworld.com/en/models/2954045-bambu-automatic-fume-extractor-active-carbon .
 - **Exhaust System** - You will need a way to get the exhaust from your printer(s) over to this system.  I highly recommend https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2013378 as my system is designed to directly use that system's hose adapters.  In fact the threads on the front and back of my model are being used with permission from that project.
 - **Mesh Caps** - Print two of these to reduce the risk of accidentally contacting the fan blades — End Cap with Gyroid Mesh (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated#profileId-2606325).
 - **ESP32-WROOM controller** - Any ESP32 board should work but the board I'm using is the HiLetgo ESP-WROOM-32 development board with the pins on the bottom: https://www.amazon.com/dp/B0718T232Z
@@ -22,7 +22,7 @@ This is a list of materials that will be required.  These are my suggestions to 
 - **Filter Bag** - A bag to hold the active carbon: https://www.amazon.com/dp/B09HQFZXSY
 - **Misc Hardware** - 10x M3x6 self tapping screws, 8x M4x30 screws, and a USB to Micro USB cable to connect the ESP32 directly to your computer for programming.
 - **Optional - Pre-Filter** - We are pulling from the exhaust which should already be filtered on a Bambu printer but is here in case you want to use this on a different printer or enclosure, as it will help keep dust and particles out of the active carbon.  Almost any thin filter material will do: https://www.lowes.com/pd/Frost-King-Common-15-in-x-24-in-x-0-1875-in-Actual-15-in-x-24-in-Washable-Cut-To-Fit-Air-Filter/1196229
-- **Optional - Intake Cap** - If you are hooking this up to a single printer you need to cap the extra intake.  Print out one of these:  Solid End Cap (No Airflow) (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated?profiled=2938064#profileId-2938064).
+- **Optional - Intake Cap** - Only needed if you are using the two-printer box with a single printer. This caps the unused intake — if you printed the single-printer box you can skip this:  Solid End Cap (No Airflow) (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated?profiled=2938064#profileId-2938064).
 - **Optional - Potentiometer** - A 10k potentiometer to manually control the fans.  See the "Setting up Manual Mode" section: https://www.amazon.com/MTDELE-Potentiometer-Variable-Resistor-Connector/dp/B0D93WJJTR
 
 # Assembly Guide
@@ -48,7 +48,7 @@ This assembly guide is assuming you have everything from the bill of materials a
 4. Slide two honeycomb walls into the large channel in the middle of the box.  Fill the media bag about 1/2 full and test fit into the channel.  You want it full to the top but not tightly packed.  If the walls bow a little it'll be fine.  Note active carbon can be dusty so either wear gloves or make sure to wash your hands afterward.  Also in the image mine is a little too full but it should be fine. [Image](images/ActiveCarbonAdded.jpg)
 5. If using a pre-filter slide two honeycomb walls into the small channel nearest the back of the box.  Cut the pre-filter to size and slide it in between the walls.  Note I am not using the pre filter as I will be venting Bambu printers that already should be doing this but it's added in case you are using other printers or enclosures.
 7. Screw on the mesh caps for the fan outputs.
-8. If you are hooking up to only one printer seal one of the intakes with the solid cap.
+8. If you are using the two-printer box with only one printer, seal the unused intake with the solid cap. If you printed the single-printer box you can skip this step.
 
 # Installing the Software and Flashing the Controller
 For the programming side I will be using the free Microsoft Visual Studio Code program available at https://code.visualstudio.com/. You can also use the Arduino IDE if you are familiar with that but these instructions will use VS Code on a standard Windows 10+ machine. Please adjust for the system you are using.
