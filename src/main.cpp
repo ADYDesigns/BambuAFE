@@ -36,12 +36,14 @@
 #define AP_SSID            "BambuAFE-Setup"
 #define AP_PASSWORD        ""
 #define CONFIG_FILE        "/config.json"
-#define FIRMWARE_VERSION   "0.9.8"
+#define FIRMWARE_VERSION   "0.9.9"
 
 #define FAN1_PIN           16
 #define FAN2_PIN           17
 #define PWM_FREQ           25000
 #define PWM_RESOLUTION     8
+#define PWM_CHANNEL_1      0
+#define PWM_CHANNEL_2      1
 
 #define BAMBU_CLOUD_PORT   8883
 #define MQTT_RECONNECT_MS  15000
@@ -51,6 +53,9 @@
 #define LED_G_PIN           26
 #define LED_B_PIN           27
 #define NEOPIXEL_PIN        32
+#define PWM_CHANNEL_R       2
+#define PWM_CHANNEL_G       3
+#define PWM_CHANNEL_B       4
 #define INDICATOR_STATE_CHECK_MS 1000  // how often to reevaluate connection state — it's slow-changing
 #define INDICATOR_BLINK_MS       500   // blink toggle interval (toggle every 500ms = 1 blink/sec)
 
@@ -128,10 +133,12 @@ int readPotentiometer() {
 // ══════════════════════════════════════════════════════════════════════════
 
 void initFans() {
-  ledcAttach(FAN1_PIN, PWM_FREQ, PWM_RESOLUTION);
-  ledcAttach(FAN2_PIN, PWM_FREQ, PWM_RESOLUTION);
-  ledcWrite(FAN1_PIN, 0);
-  ledcWrite(FAN2_PIN, 0);
+  ledcSetup(PWM_CHANNEL_1, PWM_FREQ, PWM_RESOLUTION);
+  ledcSetup(PWM_CHANNEL_2, PWM_FREQ, PWM_RESOLUTION);
+  ledcAttachPin(FAN1_PIN, PWM_CHANNEL_1);
+  ledcAttachPin(FAN2_PIN, PWM_CHANNEL_2);
+  ledcWrite(PWM_CHANNEL_1, 0);
+  ledcWrite(PWM_CHANNEL_2, 0);
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -140,12 +147,15 @@ void initFans() {
 // ══════════════════════════════════════════════════════════════════════════
 
 void initIndicatorLed() {
-  ledcAttach(LED_R_PIN, PWM_FREQ, PWM_RESOLUTION);
-  ledcAttach(LED_G_PIN, PWM_FREQ, PWM_RESOLUTION);
-  ledcAttach(LED_B_PIN, PWM_FREQ, PWM_RESOLUTION);
-  ledcWrite(LED_R_PIN, 255);   // off (common-anode: 255=off, inverted)
-  ledcWrite(LED_G_PIN, 255);
-  ledcWrite(LED_B_PIN, 255);
+  ledcSetup(PWM_CHANNEL_R, PWM_FREQ, PWM_RESOLUTION);
+  ledcSetup(PWM_CHANNEL_G, PWM_FREQ, PWM_RESOLUTION);
+  ledcSetup(PWM_CHANNEL_B, PWM_FREQ, PWM_RESOLUTION);
+  ledcAttachPin(LED_R_PIN, PWM_CHANNEL_R);
+  ledcAttachPin(LED_G_PIN, PWM_CHANNEL_G);
+  ledcAttachPin(LED_B_PIN, PWM_CHANNEL_B);
+  ledcWrite(PWM_CHANNEL_R, 255);   // off (common-anode: 255=off, inverted)
+  ledcWrite(PWM_CHANNEL_G, 255);
+  ledcWrite(PWM_CHANNEL_B, 255);
 
   pixel.begin();
   pixel.setBrightness(64);        // dimmed — this runs 24/7, no need for full blast
@@ -169,9 +179,9 @@ IndicatorState getIndicatorState() {
 
 void setIndicatorColor(uint8_t r, uint8_t g, uint8_t b) {
   // Discrete common-anode RGB — inverted duty cycle. Harmless if unpopulated.
-  ledcWrite(LED_R_PIN, 255 - r);
-  ledcWrite(LED_G_PIN, 255 - g);
-  ledcWrite(LED_B_PIN, 255 - b);
+  ledcWrite(PWM_CHANNEL_R, 255 - r);
+  ledcWrite(PWM_CHANNEL_G, 255 - g);
+  ledcWrite(PWM_CHANNEL_B, 255 - b);
 
   // Addressable — harmless if unpopulated.
   pixel.setPixelColor(0, pixel.Color(r, g, b));
@@ -219,8 +229,8 @@ void setFanSpeed(int pct) {
   if (pct == currentFanPct) return;
   currentFanPct = pct;
   int duty = map(pct, 0, 100, 0, 255);
-  ledcWrite(FAN1_PIN, duty);
-  ledcWrite(FAN2_PIN, duty);
+  ledcWrite(PWM_CHANNEL_1, duty);
+  ledcWrite(PWM_CHANNEL_2, duty);
   Serial.printf("[Fan] Speed set to %d%% (duty %d)\n", pct, duty);
 }
 
