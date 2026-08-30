@@ -51,6 +51,8 @@
 #define LED_G_PIN           26
 #define LED_B_PIN           27
 #define NEOPIXEL_PIN        32
+#define INDICATOR_STATE_CHECK_MS 1000  // how often to reevaluate connection state — it's slow-changing
+#define INDICATOR_BLINK_MS       500   // blink toggle interval (toggle every 500ms = 1 blink/sec)
 
 // ─── Global objects ────────────────────────────────────────────────────────
 WebServer        server(80);
@@ -177,17 +179,31 @@ void setIndicatorColor(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void updateIndicatorLed() {
+  static unsigned long lastStateCheck = 0;
   static unsigned long lastBlink = 0;
   static bool blinkOn = true;
   static uint8_t lastR = 255, lastG = 255, lastB = 255;  // force first write
+  static IndicatorState cachedState = IND_NOT_SETUP;
 
+  unsigned long now = millis();
+
+  // Connection state is slow-changing (seconds, not milliseconds) — only
+  // actually re-check it once a second, and cache the result in between.
+  if (now - lastStateCheck >= INDICATOR_STATE_CHECK_MS) {
+    lastStateCheck = now;
+    cachedState = getIndicatorState();
+  }
+
+  // Blink timing runs independently of the state check above, so the
+  // toggle rate stays accurate regardless of how often the state itself
+  // is reevaluated.
   uint8_t r = 0, g = 0, b = 0;
-  switch (getIndicatorState()) {
+  switch (cachedState) {
     case IND_NOT_SETUP:      b = 255;             break;  // solid blue
     case IND_CONNECTED:      g = 255;             break;  // solid green
     case IND_RECONNECTING:   r = 255; g = 191;     break;  // solid amber
     case IND_AUTH_FAILURE:
-      if (millis() - lastBlink > 500) { lastBlink = millis(); blinkOn = !blinkOn; }
+      if (now - lastBlink >= INDICATOR_BLINK_MS) { lastBlink = now; blinkOn = !blinkOn; }
       r = blinkOn ? 255 : 0;
       break;
   }
@@ -252,11 +268,7 @@ void updateFanSpeed() {
 // ══════════════════════════════════════════════════════════════════════════
 
 bool hasValidToken() {
-  if (!strlen(cfg.bambu_token) || !strlen(cfg.bambu_user_id)) {
-    Serial.println("[Auth] No token or user ID configured");
-    return false;
-  }
-  return true;
+  return strlen(cfg.bambu_token) > 0 && strlen(cfg.bambu_user_id) > 0;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
