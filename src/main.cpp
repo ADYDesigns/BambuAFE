@@ -28,6 +28,7 @@
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 #include <ESPmDNS.h>
+#include <Adafruit_NeoPixel.h>
 
 // ─── Pin & timing constants ────────────────────────────────────────────────
 #define RESET_BUTTON_PIN   0
@@ -48,10 +49,22 @@
 #define MQTT_RECONNECT_MS  15000
 #define POT_PIN            35
 
+#define LED_R_PIN           25
+#define LED_G_PIN           26
+#define LED_B_PIN           27
+#define NEOPIXEL_PIN        32
+#define PWM_CHANNEL_R       2
+#define PWM_CHANNEL_G       3
+#define PWM_CHANNEL_B       4
+
 // ─── Global objects ────────────────────────────────────────────────────────
 WebServer        server(80);
 WiFiClientSecure tlsClient;
 PubSubClient     mqttClient(tlsClient);
+Adafruit_NeoPixel pixel(1, NEOPIXEL_PIN, NEO_RGB + NEO_KHZ800);
+// NEO_RGB, not the more common NEO_GRB — verify against whichever part you
+// source; swap to NEO_GRB if colors come out swapped once you test it.
+int lastMqttRc = 0;   // last PubSubClient::state() value we saw on a failed connect
 
 // ─── Config struct ─────────────────────────────────────────────────────────
 struct Config {
@@ -124,6 +137,75 @@ void initFans() {
   ledcAttachPin(FAN2_PIN, PWM_CHANNEL_2);
   ledcWrite(PWM_CHANNEL_1, 0);
   ledcWrite(PWM_CHANNEL_2, 0);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Connection-status indicator LED (discrete RGB and/or addressable — both
+//  are always driven; whichever one is physically wired up just lights up)
+// ══════════════════════════════════════════════════════════════════════════
+
+void initIndicatorLed() {
+  ledcSetup(PWM_CHANNEL_R, PWM_FREQ, PWM_RESOLUTION);
+  ledcSetup(PWM_CHANNEL_G, PWM_FREQ, PWM_RESOLUTION);
+  ledcSetup(PWM_CHANNEL_B, PWM_FREQ, PWM_RESOLUTION);
+  ledcAttachPin(LED_R_PIN, PWM_CHANNEL_R);
+  ledcAttachPin(LED_G_PIN, PWM_CHANNEL_G);
+  ledcAttachPin(LED_B_PIN, PWM_CHANNEL_B);
+  ledcWrite(PWM_CHANNEL_R, 255);   // off (common-anode: 255=off, inverted)
+  ledcWrite(PWM_CHANNEL_G, 255);
+  ledcWrite(PWM_CHANNEL_B, 255);
+
+  pixel.begin();
+  pixel.setBrightness(64);        // dimmed — this runs 24/7, no need for full blast
+}
+
+enum IndicatorState : uint8_t {
+  IND_NOT_SETUP = 0,
+  IND_CONNECTED,
+  IND_RECONNECTING,
+  IND_AUTH_FAILURE
+};
+
+bool hasValidToken();  // forward declaration — defined further down, same pattern as saveRuntime()
+
+IndicatorState getIndicatorState() {
+  if (!hasValidToken())                     return IND_NOT_SETUP;
+  if (mqttClient.connected())                return IND_CONNECTED;
+  if (lastMqttRc == 4 || lastMqttRc == 5)    return IND_AUTH_FAILURE;
+  return IND_RECONNECTING;
+}
+
+void setIndicatorColor(uint8_t r, uint8_t g, uint8_t b) {
+  // Discrete common-anode RGB — inverted duty cycle. Harmless if unpopulated.
+  ledcWrite(PWM_CHANNEL_R, 255 - r);
+  ledcWrite(PWM_CHANNEL_G, 255 - g);
+  ledcWrite(PWM_CHANNEL_B, 255 - b);
+
+  // Addressable — harmless if unpopulated.
+  pixel.setPixelColor(0, pixel.Color(r, g, b));
+  pixel.show();
+}
+
+void updateIndicatorLed() {
+  static unsigned long lastBlink = 0;
+  static bool blinkOn = true;
+  static uint8_t lastR = 255, lastG = 255, lastB = 255;  // force first write
+
+  uint8_t r = 0, g = 0, b = 0;
+  switch (getIndicatorState()) {
+    case IND_NOT_SETUP:      b = 255;             break;  // solid blue
+    case IND_CONNECTED:      g = 255;             break;  // solid green
+    case IND_RECONNECTING:   r = 255; g = 191;     break;  // solid amber
+    case IND_AUTH_FAILURE:
+      if (millis() - lastBlink > 500) { lastBlink = millis(); blinkOn = !blinkOn; }
+      r = blinkOn ? 255 : 0;
+      break;
+  }
+
+  if (r != lastR || g != lastG || b != lastB) {   // same dedup instinct as setFanSpeed()
+    setIndicatorColor(r, g, b);
+    lastR = r; lastG = g; lastB = b;
+  }
 }
 
 void setFanSpeed(int pct) {
@@ -350,10 +432,12 @@ bool connectMqtt() {
 
   Serial.printf("[MQTT] Connecting to %s as %s...\n", mqttHost, mqttUser);
   if (!mqttClient.connect(clientId, mqttUser, cfg.bambu_token)) {
-    Serial.printf("[MQTT] Connection failed, rc=%d\n", mqttClient.state());
+    lastMqttRc = mqttClient.state();
+    Serial.printf("[MQTT] Connection failed, rc=%d\n", lastMqttRc);
     return false;
   }
 
+  lastMqttRc = 0;
   Serial.println("[MQTT] Connected to Bambu Cloud");
 
   // Subscribe to both printer report topics
@@ -833,6 +917,7 @@ void setup() {
   Serial.printf("[Boot] Firmware version: %s\n", FIRMWARE_VERSION);
 
   initFans();
+  initIndicatorLed();
   pinMode(POT_PIN, INPUT);
 
   if (!LittleFS.begin(true)) { Serial.println("[FS] Mount failed!"); return; }
@@ -886,4 +971,5 @@ void loop() {
   server.handleClient();
   loopMqtt();
   loopRuntime();
+  updateIndicatorLed();
 }
