@@ -128,6 +128,7 @@ Once that is done you will have to go back through the **Initial Setup of the Co
 Once setup you may never look at the status pages through a web browser again but as mentioned above the cloud connection will eventually expire and have to be reauthenticated.  To make this easier to see you can add an optional common anode RGB LED or a programmable LED (NeoPixel/WS2812/SK6812).  Drill a hole and mount the LED using a bevel LED holder, or even just leave the LED inside so the light shines out the exhaust, and wire it in as follows:
 * For a RGB LED:  Red to Pin 25, Green to 26, Blue to 27, and common to 5v.  Check the LED's documentation to make sure it's correct.
 * For a Programmable LED:  VDD to 5v, GND to ground, DIN to 32, and DOUT will not be used (usually to daisy chain to the next LED).  Again check your documentation.
+
 The programming is already done and you could even use both although there is no reason to.  Once added it will indicate status:
 * Solid blue — cloud account not yet configured
 * Solid green — connected
