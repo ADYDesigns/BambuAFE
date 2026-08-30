@@ -23,6 +23,7 @@ This is a list of materials that will be required.  These are my suggestions to 
 - **Misc Hardware** - 10x M3x6 self tapping screws, 8x M4x30 screws, and a USB to Micro USB cable to connect the ESP32 directly to your computer for programming.
 - **Optional - Pre-Filter** - We are pulling from the exhaust which should already be filtered on a Bambu printer but is here in case you want to use this on a different printer or enclosure, as it will help keep dust and particles out of the active carbon.  Almost any thin filter material will do: https://www.lowes.com/pd/Frost-King-Common-15-in-x-24-in-x-0-1875-in-Actual-15-in-x-24-in-Washable-Cut-To-Fit-Air-Filter/1196229
 - **Optional - Intake Cap** - Only needed if you are using the two-printer box with a single printer. This caps the unused intake — if you printed the single-printer box you can skip this:  Solid End Cap (No Airflow) (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated?profiled=2938064#profileId-2938064).
+- **Optional - LED Status Indicator** - A LED to show the status of your cloud connection.  Programming exists for both a common anode RGB LED or a programmable LED (NeoPixel,WS2812B/SK6812).  You only need one but both are included to make sourcing the part easier:  https://www.adafruit.com/product/159 (RGB) or https://www.adafruit.com/product/1938 (Programmable).  Also may want a mount like https://www.adafruit.com/product/2176 but see the section "Adding a LED Indicator for Status" for more information.
 - **Optional - Potentiometer** - A 10k potentiometer to manually control the fans.  See the "Setting up Manual Mode" section: https://www.amazon.com/MTDELE-Potentiometer-Variable-Resistor-Connector/dp/B0D93WJJTR
 
 # Assembly Guide
@@ -123,7 +124,17 @@ To reset and clear the controller, you can:
 
 Once that is done you will have to go back through the **Initial Setup of the Controller** and **Configuring the AFE** sections above.
 
-# Setting up Manual Mode
+# Adding a LED Indicator for Status (Optional)
+Once setup you may never look at the status pages through a web browser again but as mentioned above the cloud connection will eventually expire and have to be reauthenticated.  To make this easier to see you can add an optional common anode RGB LED or a programmable LED (NeoPixel/WS2812/SK6812).  Drill a hole and mount the LED using a bevel LED holder, or even just leave the LED inside so the light shines out the exhaust, and wire it in as follows:
+* For a RGB LED:  Red to Pin 25, Green to 26, Blue to 27, and common to 5v.  Check the LED's documentation to make sure it's correct.
+* For a Programmable LED:  VDD to 5v, GND to ground, DIN to 32, and DOUT will not be used (usually to daisy chain to the next LED).  Again check your documentation.
+The programming is already done and you could even use both although there is no reason to.  Once added it will indicate status:
+* Solid blue — cloud account not yet configured
+* Solid green — connected
+* Solid amber — reconnecting (temporary issue)
+* Blinking red — authentication failed, token needs refreshing
+
+# Setting up Manual Mode (Optional)
 At any time Bambu Lab may shut down the ability to get cloud data which will make this project go from an **Automatic** Fume Extractor to a **Manual** Fume Extractor.  Just in case that happens the ESP32 has already been programmed to accept voltage input on GPIO 35 which can be controlled by a common 10k potentiometer.  In fact if you don't want to connect the device to the Bambu Cloud at all you can add any 10k potentiometer to GPIO 35 and use this project completely manually.  The web interface will not give status info for your printers but will show that the controller is manually overridden and give fan output speed.   [Image](images/StatusWhenManualOverrideIsActive.jpg) 
 
 The way manual mode works is the controller is always looking for voltage on GPIO 35.  If it doesn't see at least ~0.3v it stays in automatic mode.  However, if it sees more than ~0.3v it goes into manual mode.  From that point on turning the potentiometer will ramp the fans up, turning the potentiometer back to zero turns the fans off and goes back to automatic.  The wiring for this is fairly simple: The wiper, usually the center pin, of the potentiometer goes to GPIO 35 while the other pins go to ground and 3.3v, all labeled on the breakout board.  Turning the dial past roughly 10% (about 0.3v) will initiate manual mode and beyond that point the fan will ramp up to 100%.  If you are using the potentiometer I recommended wire the red wire to positive (+), the black wire to GPIO 35, and the yellow wire to ground (-). Note that wire colors can vary between potentiometers, so if the values seem reversed or erratic verify which pin is the wiper and confirm your connections.  [Image](images/ManualOverrideWiring.jpg) 
