@@ -513,7 +513,7 @@ void loopMqtt() {
         requestPushAll(cfg.printer2_serial, p2state);
       }
     }
-  } else if (millis() - lastReconnect > MQTT_RECONNECT_MS) {
+  } else if (hasValidToken() && millis() - lastReconnect > MQTT_RECONNECT_MS) {
     lastReconnect = millis();
     Serial.println("[MQTT] Reconnecting...");
     p1state.connected    = false;
