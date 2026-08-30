@@ -77,7 +77,7 @@ struct Config {
   char bambu_token[512]   = "";         // set via config page or PowerShell script
   char printer1_name[64]  = "";
   char printer1_serial[32]= "";
-  int  printer1_gen       = 1;   // 1 = Gen 1 (X1C/P1S/A1), 2 = Gen 2 (H2C/H2S/H2D/P2S/X2D)
+  int  printer1_gen       = 1;   // 1 = Gen 1 (X1C/P1S/A1), 2 = Gen 2 (H2C/H2S/H2D/P2S/X2D/A2L)
   char printer2_name[64]  = "";
   char printer2_serial[32]= "";
   int  printer2_gen       = 1;
@@ -302,7 +302,7 @@ void parseGen1Payload(JsonObject& print, PrinterState& state) {
 }
 
 void parseGen2Payload(JsonObject& print, PrinterState& state) {
-  // Gen 2: H2C, H2S, H2D, P2S, X2D
+  // Gen 2: H2C, H2S, H2D, P2S, X2D, A2L
   // Status is inferred from mc_percent, layer_num, and the airduct exhaust fan
   // gcode_state and mc_percent may still appear in some messages
   const char* cmd = print["command"] | "";
