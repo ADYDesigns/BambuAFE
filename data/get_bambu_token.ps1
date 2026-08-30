@@ -150,7 +150,7 @@ Write-Host "  SUCCESS" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "User ID : $userId" -ForegroundColor White
-Write-Host "Token   : $($token.Substring(0, [Math]::Min(40, $token.Length)))..." -ForegroundColor White
+Write-Host "Token   : $($token.Substring(0, [Math]::Min(40, $token.Length)))... (Truncated)" -ForegroundColor White
 Write-Host ""
 
 # ── Send to BambuAFE ──────────────────────────────────────────────────────────
@@ -167,16 +167,26 @@ if ($send -match "^[Yy]") {
             -Method Post `
             -Headers @{ Authorization = "Basic $creds" } `
             -ContentType "application/x-www-form-urlencoded" `
-            -Body $body
+            -Body $body `
+            -TimeoutSec 10
 
         if ($resp.ok) {
             Write-Host "Token saved to BambuAFE successfully!" -ForegroundColor Green
         } else {
             Write-Host "Save failed: $($resp.error)" -ForegroundColor Red
+            $reveal = Read-Host "I was unable to automatically save the user ID and token to the device. Do you want the full token displayed so you can manually copy/paste it? (Y/N)"
+            if ($reveal -match "^[Yy]") {
+                Write-Host ""
+                Write-Host "Token : $token" -ForegroundColor White
+            }
         }
     } catch {
-        Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host "Paste the User ID and token into the config page manually." -ForegroundColor Yellow
+        Write-Host "ERROR: Could not reach BambuAFE at '$BambuAFE_IP' — $($_.Exception.Message)" -ForegroundColor Red
+        $reveal = Read-Host "I was unable to automatically save the user ID and token to the device. Do you want the full token displayed so you can manually copy/paste it? (Y/N)"
+        if ($reveal -match "^[Yy]") {
+            Write-Host ""
+            Write-Host "Token : $token" -ForegroundColor White
+        }
     }
 } else {
     Write-Host "Paste the User ID and token into the BambuAFE config page manually." -ForegroundColor Yellow
