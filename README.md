@@ -87,7 +87,7 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
 5. For each printer you want to use:
    1. Click **Use as Printer 1** or **Use as Printer 2**.  This fills in the name, serial number, and IP address for you.  You can change the name to anything you like — it's just for your own information.
    2. Enter the printer's **access code**.  This is an 8 character code shown on the printer's touchscreen.  Go into the printer's settings, open the network (WLAN) page, and look for **Access Code**.  This is the only thing you have to type.
-   * Note: The access code does not expire like the old cloud token did.  It only changes if you change it on the printer.  If it ever does change just enter the new one here.
+   * Note: The access code does not expire.  It only changes if you change it on the printer.  If it ever does change just enter the new one here.
    * Tip: The controller remembers each printer by its serial number.  If your router ever gives a printer a new IP address the controller will search for it and update the address on its own.  If you'd like to avoid that entirely you can give your printers a reserved (static) IP address in your router, but it is not required.
 6. On the same Configuration page scroll down to the **Fans** section:
    1. Enter the minimum speed when either printer is printing.  The fans have a minimum so 8% is usually the lowest this should be set.  [Image](images/FanSetup.jpg)
@@ -111,13 +111,6 @@ A future Bambu firmware update could change how printers share their status on t
 The way manual mode works is the controller is always looking for voltage on GPIO 35.  If it doesn't see at least ~0.3v it stays in automatic mode.  However, if it sees more than ~0.3v it goes into manual mode.  From that point on turning the potentiometer will ramp the fans up, turning the potentiometer back to zero turns the fans off and goes back to automatic.  The wiring for this is fairly simple: The wiper, usually the center pin, of the potentiometer goes to GPIO 35 while the other pins go to ground and 3.3v, all labeled on the breakout board.  Turning the dial past roughly 10% (about 0.3v) will initiate manual mode and beyond that point the fan will ramp up to 100%.  If you are using the potentiometer I recommended wire the red wire to positive (+), the black wire to GPIO 35, and the yellow wire to ground (-). Note that wire colors can vary between potentiometers, so if the values seem reversed or erratic verify which pin is the wiper and confirm your connections.  [Image](images/ManualOverrideWiring.jpg) 
 
 If this function is needed, simply drill a hole in the side of the enclosure, mount the potentiometer, and wire it in.  [Image](images/ManualOverrideHoleDrilled.jpg)  [Image](images/ManualOverridePotentiometerMounted.jpg)  [Image](images/CompleteWithManualOverrideKnob.jpg)
-
-# Upgrading from the Cloud Version (0.9.x)
-Earlier versions of this project connected through the Bambu Cloud and needed an access token that expired every few months.  Version 1.0.0 connects directly to your printers instead, so the token, the PowerShell script, and the status LED are no longer needed.  To upgrade:
-1. Follow the **Installing the Software and Flashing the Controller** section again.  You need to do **both** the Upload Filesystem Image step and the Upload (firmware) step, because the web pages changed too.
-2. Your Wi-Fi settings, passwords, fan speeds, and each printer's name and serial number are kept.
-3. Open the Configuration page and enter each printer's access code, then click Save.  You don't need to enter the IP addresses — the controller will find each printer by its serial number.
-4. If you had wired up the optional status LED you can leave it in place or remove it.  The firmware no longer uses it.
 
 # Tested Printers
 Local mode has been tested on the Bambu Lab H2C (firmware 01.02.00.00).  Other Bambu printers use the same local connection and the controller reads whichever exhaust fan information each model sends, so they are expected to work, but they have not been tested yet.  If you try it on another model please let me know how it goes.
