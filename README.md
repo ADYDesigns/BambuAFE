@@ -1,7 +1,9 @@
 ![Bambu Overview Image](images/BambuAFEOverviewImage.jpg)
 
 # Bambu Automatic Fume Extractor (BambuAFE)
-This project intends to reduce the amount of harmful gases produced during the 3D printing process by creating a slight negative pressure in the chamber to reduce or eliminate them leaking out.  It does this by automatically controlling a fume extractor fan based on what your Bambu printers are doing.  It uses a 3D printed filter box with active charcoal and an ESP32 to poll one or two Bambu printers for status information and ramp a set of fans up and down based on the printer status.  It also gives basic printer status information through a dashboard.
+This project intends to reduce the amount of harmful gases produced during the 3D printing process by creating a slight negative pressure in the chamber to reduce or eliminate them leaking out.  It does this by automatically controlling a fume extractor fan based on what your Bambu printers are doing.  It uses a 3D printed filter box with active charcoal and an ESP32 that talks directly to one or two Bambu printers over your local network, then ramps a set of fans up and down based on the printer status.  It also gives basic printer status information through a dashboard.
+
+No Bambu Cloud account, token, or internet connection is needed.  The controller connects straight to each printer over your local network using the printer's access code — the same kind of local connection Bambu Studio can use.  The printers can stay in their normal mode — you do **not** need to turn on LAN Only mode or Developer Mode, and Bambu Handy and cloud printing keep working.  The only requirement is that the controller and the printers are on the same network.
 
 Although the programming was designed around two printers it can easily be used for a single printer simply by omitting a second one during setup. You can either print the single-printer version of the box which has just one input and output, or use the two-printer box and cap the unused intake. Printing the two-printer box gives you the future option of adding a second printer without needing to reprint anything. Using more than two printers is also possible but is an advanced use case requiring some modifications to the code to monitor more than two printers.
 
@@ -23,7 +25,6 @@ This is a list of materials that will be required.  These are my suggestions to 
 - **Misc Hardware** - 10x M3x6 self tapping screws, 8x M4x30 screws, and a USB to Micro USB cable to connect the ESP32 directly to your computer for programming.
 - **Optional - Pre-Filter** - We are pulling from the exhaust which should already be filtered on a Bambu printer but is here in case you want to use this on a different printer or enclosure, as it will help keep dust and particles out of the active carbon.  Almost any thin filter material will do: https://www.lowes.com/pd/Frost-King-Common-15-in-x-24-in-x-0-1875-in-Actual-15-in-x-24-in-Washable-Cut-To-Fit-Air-Filter/1196229
 - **Optional - Intake Cap** - Only needed if you are using the two-printer box with a single printer. This caps the unused intake — if you printed the single-printer box you can skip this:  Solid End Cap (No Airflow) (https://makerworld.com/en/models/1880330-slim-h2-quicklock-exhaust-system-updated?profiled=2938064#profileId-2938064).
-- **Optional - LED Status Indicator** - A LED to show the status of your cloud connection.  Programming exists for either a common anode RGB LED or a programmable LED (NeoPixel,WS2812B/SK6812).  You only need one but both are included to make sourcing the part easier:  https://www.adafruit.com/product/159 (RGB) + 1x 220 ohm resistor and 2x 100 ohm resistors or https://www.adafruit.com/product/1938 (Programmable).  Also may want a mount like https://www.adafruit.com/product/2176 but see the section "Adding a LED Indicator for Status" for more information.
 - **Optional - Potentiometer** - A 10k potentiometer to manually control the fans.  See the "Setting up Manual Mode" section: https://www.amazon.com/MTDELE-Potentiometer-Variable-Resistor-Connector/dp/B0D93WJJTR
 
 # Assembly Guide
@@ -80,34 +81,14 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
 1. The controller should now be on your network.  Use either the controller's IP address such as 'http://192.168.1.162/' or the hostname such as 'http://BambuAFE-ESP32.local/'.  If the `.local` address does not work in your browser use the IP address instead — the IP address is always printed to the Serial Monitor when the controller boots.  
 2. Enter `admin` as the username — this is the default hardcoded username for the controller and cannot be changed — and the password you configured during setup. [Image](images/LoginToController.jpg)
 3. By default you will get a status page.  Click the '⚙ Configuration' link at the top to change settings. [Image](images/InitialDashboard.jpg)
-4. Under the **Bambu Cloud Account** section you will need to sign in to link the controller to your Bambu account.  There are three ways to do this: [Image](images/CloudAccountSetup.jpg)
-   1. **Option A — PowerShell script:** This is the recommended way for Windows users.
-      1. Download `get_bambu_token.ps1` from the Configuration page on the controller — there is a download link in the Bambu Cloud Account section.
-         * Note: Depending on how your computer is setup you may have to right click the file and "Unblock" it before it will run. [Image](images/UnblockPowershellFile.png)
-      3. Open a [PowerShell 7](https://github.com/powershell/powershell/releases) window and navigate to the directory you saved the script to and execute it by typing `get_bambu_token.ps1` and pressing enter.
-      4. Edge will open automatically — log in to your Bambu account and complete any Cloudflare check or 2FA if prompted.
-      5. While leaving Edge open return to the PowerShell window and press ENTER once you are fully logged in.
-      6. The script will extract your token and offer to send it directly to the controller — enter your dashboard password when prompted. [Image](images/PowershellResults.png)
-      7. Return to the configuration page and press F5 to refresh.  It should indicate that the token is saved with a green checkmark.  [Image](images/CloudAccountSaved.jpg)
-   2. **Option B — Manual token entry:** This is a manual way to find your information within the browser cookies on your machine.
-      1. Log into https://bambulab.com in your browser.
-      2. Press F12 to open Developer Tools.
-      3. Click the **Storage** tab (Firefox) or **Application** tab (Chrome/Edge).
-      4. Expand **Cookies** and click on **bambulab.com**.
-      5. Find the cookie named **token** — copy its full value (a very long string).
-      6. Find the cookie named **user_id** — copy its value.
-      7. Paste both into the manual entry fields on the configuration page.
-   3. **Option C — Python Script:**
-      There are multiple Python scripts available that can retrieve your User ID and token automatically.  These scripts impersonate a web browser to bypass Cloudflare's bot detection.  Here are a couple of options:
-      - https://github.com/coelacant1/Bambu-Lab-Cloud-API#quick-start-authentication
-      - https://github.com/Keralots/BambuHelper/blob/main/tools/get_token.py
-
-* Note: The access token expires approximately every 3 months.  When it expires repeat the same method to get a new one.
-
-5. For each printer:
-   1. Enter the printer's name.  This is for your own information and to see status later. [Image](images/PrinterSetup.jpg)
-   2. Enter the printer's serial number.  This can be found on a sticker on the back or bottom of the printer, or in Bambu Studio under the Device tab.
-   3. Select the printer generation.  Gen 1 covers the X1C, P1S, P1P, A1, and A1 Mini.  Gen 2 covers the H2C, H2S, H2D, P2S, X2D, and A2L.
+4. Under the **Printers** section click **Find printers**.  The controller searches your network for Bambu printers, which takes about 3 seconds, and lists each one it finds with its name, model, IP address, and serial number.  [Image](images/PrinterSetup.jpg)
+   * If you have more than two printers on your network all of them will be listed.  Choose the one or two printers this filter box is connected to.  Printers you don't choose are ignored.
+   * If no printers show up make sure they are powered on and connected to the same network as the controller.  Some routers block this kind of search on guest networks or between different networks (VLANs).  In that case you can type the serial number and IP address in by hand.
+5. For each printer you want to use:
+   1. Click **Use as Printer 1** or **Use as Printer 2**.  This fills in the name, serial number, and IP address for you.  You can change the name to anything you like — it's just for your own information.
+   2. Enter the printer's **access code**.  This is an 8 character code shown on the printer's touchscreen.  Go into the printer's settings, open the network (WLAN) page, and look for **Access Code**.  This is the only thing you have to type.
+   * Note: The access code does not expire like the old cloud token did.  It only changes if you change it on the printer.  If it ever does change just enter the new one here.
+   * Tip: The controller remembers each printer by its serial number.  If your router ever gives a printer a new IP address the controller will search for it and update the address on its own.  If you'd like to avoid that entirely you can give your printers a reserved (static) IP address in your router, but it is not required.
 6. On the same Configuration page scroll down to the **Fans** section:
    1. Enter the minimum speed when either printer is printing.  The fans have a minimum so 8% is usually the lowest this should be set.  [Image](images/FanSetup.jpg)
    2. Enter the maximum speed when one printer is actively exhausting (when the printer's exhaust fan is actively running).  The actual fan speed will scale between the minimum and this maximum based on the printer's exhaust speed.  This should be around 50%.
@@ -115,7 +96,7 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
 7. Click Save and the controller will apply your changes.
 8. Once everything is working unplug the ESP32 from your computer and plug the USB from the 12v to 5v power converter into the ESP32.  You can then close up the filter box, put the top cover on, and plug in the power supply.
 
-You can now navigate to the Dashboard to see the status of your printers.  Note that Bambu only sends data when the printer is active so until you start a print or view the printer within Bambu Studio or Handy you may just see 0's or device offline. [Image](images/DashboardWithPrinters.png)  [Image](images/FanAndControllerStatus.png)
+You can now navigate to the Dashboard to see the status of your printers.  Each printer should show up within a few seconds of saving.  At the bottom of the dashboard the **Printer 1 link** and **Printer 2 link** lines show whether the controller is connected to each printer, along with its IP address.  If one says **access code rejected** double check the code on the printer's screen and enter it again. [Image](images/DashboardWithPrinters.png)  [Image](images/FanAndControllerStatus.png)
    
 # Resetting the Config
 To reset and clear the controller, you can:
@@ -124,20 +105,19 @@ To reset and clear the controller, you can:
 
 Once that is done you will have to go back through the **Initial Setup of the Controller** and **Configuring the AFE** sections above.
 
-# Adding a LED Indicator for Status (Optional)
-Once setup you may never look at the status pages through a web browser again but as mentioned above the cloud connection will eventually expire and have to be reauthenticated.  To make this easier to see you can add an optional common anode RGB LED or a programmable LED (NeoPixel/WS2812/SK6812).  Drill a hole and mount the LED using a bevel LED holder, or even just leave the LED inside so the light shines out the exhaust, and wire it in as follows:
-* For a RGB LED: Red to Pin 25 through a 220Ω resistor, Green to Pin 26 through a 100Ω resistor, Blue to Pin 27 through a 100Ω resistor, and common to 5v. The different resistor values account for red needing less forward voltage than green/blue. Check the LED's documentation to make sure it's correct.
-* For a Programmable LED:  VDD to 5v, GND to ground, DIN to 32, and DOUT will not be used (usually to daisy chain to the next LED).  Again check your documentation.
-
-The programming is already done and you could even use both although there is no reason to.  Once added it will indicate status:
-* Solid blue — cloud account not yet configured
-* Solid green — connected
-* Solid amber — reconnecting (temporary issue)
-* Blinking red — authentication failed, token needs refreshing
-
 # Setting up Manual Mode (Optional)
-At any time Bambu Lab may shut down the ability to get cloud data which will make this project go from an **Automatic** Fume Extractor to a **Manual** Fume Extractor.  Just in case that happens the ESP32 has already been programmed to accept voltage input on GPIO 35 which can be controlled by a common 10k potentiometer.  In fact if you don't want to connect the device to the Bambu Cloud at all you can add any 10k potentiometer to GPIO 35 and use this project completely manually.  The web interface will not give status info for your printers but will show that the controller is manually overridden and give fan output speed.   [Image](images/StatusWhenManualOverrideIsActive.jpg) 
+A future Bambu firmware update could change how printers share their status on the local network, which would make this project go from an **Automatic** Fume Extractor to a **Manual** Fume Extractor.  Just in case that happens the ESP32 has already been programmed to accept voltage input on GPIO 35 which can be controlled by a common 10k potentiometer.  In fact if you don't want to connect the device to your printers at all you can add any 10k potentiometer to GPIO 35 and use this project completely manually.  The web interface will not give status info for your printers but will show that the controller is manually overridden and give fan output speed.   [Image](images/StatusWhenManualOverrideIsActive.jpg) 
 
 The way manual mode works is the controller is always looking for voltage on GPIO 35.  If it doesn't see at least ~0.3v it stays in automatic mode.  However, if it sees more than ~0.3v it goes into manual mode.  From that point on turning the potentiometer will ramp the fans up, turning the potentiometer back to zero turns the fans off and goes back to automatic.  The wiring for this is fairly simple: The wiper, usually the center pin, of the potentiometer goes to GPIO 35 while the other pins go to ground and 3.3v, all labeled on the breakout board.  Turning the dial past roughly 10% (about 0.3v) will initiate manual mode and beyond that point the fan will ramp up to 100%.  If you are using the potentiometer I recommended wire the red wire to positive (+), the black wire to GPIO 35, and the yellow wire to ground (-). Note that wire colors can vary between potentiometers, so if the values seem reversed or erratic verify which pin is the wiper and confirm your connections.  [Image](images/ManualOverrideWiring.jpg) 
 
-If this function is needed, simply drill a hole in the side of the enclosure, mount the potentiometer, and wire it in.  [Image](images/ManualOverrideHoleDrilled.jpg)  [Image](images/ManualOverridePotentiometerMounted.jpg)  [Image](images/CompleteWithManualOverrideKnob.jpg) 
+If this function is needed, simply drill a hole in the side of the enclosure, mount the potentiometer, and wire it in.  [Image](images/ManualOverrideHoleDrilled.jpg)  [Image](images/ManualOverridePotentiometerMounted.jpg)  [Image](images/CompleteWithManualOverrideKnob.jpg)
+
+# Upgrading from the Cloud Version (0.9.x)
+Earlier versions of this project connected through the Bambu Cloud and needed an access token that expired every few months.  Version 1.0.0 connects directly to your printers instead, so the token, the PowerShell script, and the status LED are no longer needed.  To upgrade:
+1. Follow the **Installing the Software and Flashing the Controller** section again.  You need to do **both** the Upload Filesystem Image step and the Upload (firmware) step, because the web pages changed too.
+2. Your Wi-Fi settings, passwords, fan speeds, and each printer's name and serial number are kept.
+3. Open the Configuration page and enter each printer's access code, then click Save.  You don't need to enter the IP addresses — the controller will find each printer by its serial number.
+4. If you had wired up the optional status LED you can leave it in place or remove it.  The firmware no longer uses it.
+
+# Tested Printers
+Local mode has been tested on the Bambu Lab H2C (firmware 01.02.00.00).  Other Bambu printers use the same local connection and the controller reads whichever exhaust fan information each model sends, so they are expected to work, but they have not been tested yet.  If you try it on another model please let me know how it goes.
