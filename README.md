@@ -64,11 +64,12 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
    * You will be prompted if you want to trust the author of the files.  Click 'Yes, I trust the authors'.
 5. PlatformIO will configure the project and download any supporting files it needs.  The first time you do this may take a few minutes.
 6. Plug your ESP32 into your computer using a USB to Micro USB cable.
-7. Upload the web interface files by clicking on the PlatformIO icon indicated by an alien head on the left sidebar then General -> Upload Filesystem Image.  This uploads the web pages (dashboard, setup form, etc.) that run on the controller and must be done before flashing the firmware.  Make sure the ESP32 is connected and recognized by your computer before doing this — check Device Manager if you are unsure.  [Image](images/UploadFilesystemImage.jpg)
+7. Upload the web interface files by clicking on the PlatformIO icon indicated by an alien head on the left sidebar then Platform -> Upload Filesystem Image.  This uploads the web pages (dashboard, setup form, etc.) that run on the controller and must be done before flashing the firmware.  Make sure the ESP32 is connected and recognized by your computer before doing this — check Device Manager if you are unsure.  [Image](images/UploadFilesystemImage.jpg)
+   * Close the Serial Monitor before uploading.  If it is open the upload will fail with an "access denied" error.
    * By default VS Code will try to auto detect the ESP32.  If you have other serial devices plugged in this may fail.  At the bottom of the VS Code screen you can click the power plug icon that says "Auto" next to it and select the ESP32 directly.
    * If the upload fails you may have to put the ESP32 into boot mode.  Unplug the power, wait a few seconds, then while holding the boot button down plug the power back in.  Count to at least 3 then let go of the boot button and retry the upload.
 8. Flash the firmware by clicking on the PlatformIO icon indicated by an alien head on the left sidebar then General -> Upload.  You can also press CTRL+ALT+U as a shortcut though this may not work on all keyboards or systems. [Image](images/UploadFirmware.jpg)
-   * After flashing, open the Serial Monitor (PlatformIO -> Monitor) to watch the status of your controller.
+   * After flashing, open the Serial Monitor (General -> Monitor) to watch the status of your controller.
 
 # Initial Setup of the Controller
 1. By default the ESP32 will broadcast a wireless network called 'BambuAFE-Setup'.  Look for and connect to this WiFi network.  [Image](images/ConnectingToBuiltInWiFi.jpg)
