@@ -443,9 +443,38 @@
         .then(d => {
           status.textContent = d.ok ? '✓ Saved — connecting to your printers…' : '✗ Save failed: ' + (d.error || 'unknown error');
           status.className   = 'save-status ' + (d.ok ? 'ok' : 'err');
-          if (d.ok) { for (const n of [1, 2]) document.getElementById(`p${n}-code`).value = ''; setTimeout(fetchConfig, 1500); }
+          if (d.ok) {
+            for (const n of [1, 2]) document.getElementById(`p${n}-code`).value = '';
+            setTimeout(fetchConfig, 1500);
+            watchLinks(status);
+          }
         })
         .catch(() => { status.textContent = '✗ Request failed'; status.className = 'save-status err'; });
+    }
+
+    // After saving, check the controller every 2 seconds for up to 40 seconds
+    // and show what each printer connection is doing, instead of a fixed message.
+    let watchTimer = null;
+    function watchLinks(status) {
+      clearInterval(watchTimer);
+      const started = Date.now();
+      const tick = () => {
+        fetch('/status')
+          .then(r => r.json())
+          .then(d => {
+            const links = (d.printer_links || []).map((l, i) => ({ ...l, n: i + 1 })).filter(l => l.configured);
+            if (!links.length) { status.textContent = '✓ Saved'; clearInterval(watchTimer); return; }
+            const done  = l => l.status === 'connected' || l.status === 'access code rejected';
+            const icon  = l => l.status === 'connected' ? '✓' : l.status === 'access code rejected' ? '✗' : '…';
+            status.textContent = links.map(l => `${icon(l)} Printer ${l.n}: ${l.status}`).join('   ');
+            const allDone = links.every(done);
+            status.className = 'save-status ' + (links.some(l => l.status === 'access code rejected') ? 'err' : allDone ? 'ok' : '');
+            if (allDone || Date.now() - started > 40000) clearInterval(watchTimer);
+          })
+          .catch(() => {});   // the controller may be busy connecting — just try again
+      };
+      watchTimer = setInterval(tick, 2000);
+      tick();
     }
 
     function doReboot() {
