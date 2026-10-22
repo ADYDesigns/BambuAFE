@@ -30,7 +30,7 @@
 #include <WebServer.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
-#include <PubSubClient.h>
+#include <functional>
 #include <ESPmDNS.h>
 
 // ─── Pin & timing constants ────────────────────────────────────────────────
@@ -39,7 +39,7 @@
 #define AP_SSID            "BambuAFE-Setup"
 #define AP_PASSWORD        ""
 #define CONFIG_FILE        "/config.json"
-#define FIRMWARE_VERSION   "1.0.0"
+#define FIRMWARE_VERSION   "1.0.1"
 
 #define FAN1_PIN           16
 #define FAN2_PIN           17
@@ -55,10 +55,12 @@
 #define BAMBU_LOCAL_PORT   8883
 #define BAMBU_LOCAL_USER   "bblp"
 // A local H2C report is a FULL status message of ~25-30 KB, about once a
-// second (measured on two H2Cs).  PubSubClient silently DROPS any message
-// larger than its buffer, so this must comfortably exceed the biggest report.
-// More AMS units = bigger reports, hence the headroom.
-#define MQTT_BUFFER_SIZE   40960
+// second (measured on two H2Cs).  Holding that in RAM per printer, on top of
+// ~40 KB per TLS connection, ran the ESP32 out of memory with two printers.
+// So messages are never stored: the JSON is parsed straight off the TLS
+// connection as it arrives, keeping only the handful of fields we need.
+#define MQTT_KEEPALIVE_S         30
+#define MQTT_READ_TIMEOUT_MS     3000   // max wait for the next bytes of a message in progress
 #define TLS_CONNECT_TIMEOUT_S    4    // core default is 30 s — would freeze the loop if a printer is off
 #define TLS_HANDSHAKE_TIMEOUT_S  10   // core default is 120 s
 #define MQTT_RECONNECT_MIN_MS    15000
@@ -111,11 +113,233 @@ struct PrinterState {
   unsigned long last_seen = 0;
 };
 
+// ══════════════════════════════════════════════════════════════════════════
+//  Minimal MQTT 3.1.1 client for the printer's local broker
+//
+//  Why not PubSubClient?  It must hold each whole message in a buffer before
+//  you can look at it — 40 KB per printer here.  This client hands the
+//  message body to the JSON parser as a stream instead, 512 bytes at a time.
+//  Only what Bambu needs is implemented: CONNECT, SUBSCRIBE, PUBLISH (QoS 0)
+//  and PINGREQ.  An MQTT packet is: 1 type byte, a "remaining length" in
+//  7-bit chunks, then the body.
+// ══════════════════════════════════════════════════════════════════════════
+
+// Feeds one message body to ArduinoJson.  ArduinoJson accepts any class with
+// read() and readBytes() as a "custom reader".  It never reads past the end
+// of this message, and drain() discards whatever the parser didn't consume.
+class PayloadReader {
+ public:
+  PayloadReader(WiFiClientSecure& c, uint32_t len) : _c(c), _left(len) {}
+  int read() {
+    if (_pos >= _have && !fill()) return -1;
+    return (uint8_t)_buf[_pos++];
+  }
+  size_t readBytes(char* out, size_t n) {
+    size_t got = 0;
+    while (got < n) {
+      if (_pos >= _have && !fill()) break;
+      size_t k = min(n - got, _have - _pos);
+      memcpy(out + got, _buf + _pos, k);
+      _pos += k; got += k;
+    }
+    return got;
+  }
+  bool drain() {                       // skip the rest of this message
+    _pos = _have;
+    while (_left) { if (!fill()) return false; _pos = _have; }
+    return true;
+  }
+  bool failed() const { return _failed; }
+
+ private:
+  bool fill() {
+    if (_left == 0) return false;
+    unsigned long start = millis();
+    while (true) {
+      int avail = _c.available();
+      if (avail > 0) {
+        size_t want = min((size_t)_left, sizeof(_buf));
+        want = min(want, (size_t)avail);
+        int n = _c.read((uint8_t*)_buf, want);
+        if (n > 0) { _have = n; _pos = 0; _left -= n; return true; }
+      }
+      if (!_c.connected() || millis() - start > MQTT_READ_TIMEOUT_MS) { _failed = true; return false; }
+      delay(1);
+    }
+  }
+  WiFiClientSecure& _c;
+  uint32_t _left;
+  char     _buf[512];
+  size_t   _pos = 0, _have = 0;
+  bool     _failed = false;
+};
+
+class LocalMqtt {
+ public:
+  WiFiClientSecure tls;
+  int  lastRc = 0;     // same codes PubSubClient used: -2 can't connect, -4 timeout, 1-5 = broker refused
+  int  index  = 0;     // printer number, for log messages
+  std::function<void(PayloadReader&)> onPublish;
+
+  bool connected() { return _up && tls.connected(); }
+
+  bool connect(const char* host, uint16_t port, const char* clientId, const char* user, const char* pass) {
+    _up = false;
+    tls.stop();
+    IPAddress ip;
+    if (!ip.fromString(host) || !tls.connect(ip, port)) { lastRc = -2; tls.stop(); return false; }
+
+    uint8_t body[256]; size_t n = 0;
+    if (!putStr(body, n, sizeof(body), "MQTT")) return fail(-2);
+    body[n++] = 4;                                   // protocol level 4 = MQTT 3.1.1
+    body[n++] = 0xC2;                                // flags: username + password + clean session
+    body[n++] = MQTT_KEEPALIVE_S >> 8; body[n++] = MQTT_KEEPALIVE_S & 0xFF;
+    if (!putStr(body, n, sizeof(body), clientId) || !putStr(body, n, sizeof(body), user) ||
+        !putStr(body, n, sizeof(body), pass)) return fail(-2);
+    if (!sendPacket(0x10, body, n)) return fail(-2);
+
+    uint8_t h, len, flags, rc;                       // CONNACK: 0x20 0x02 <flags> <return code>
+    if (!readByte(h, 5000) || !readByte(len, 1000) || !readByte(flags, 1000) || !readByte(rc, 1000))
+      return fail(-4);
+    if ((h >> 4) != 2) return fail(-4);
+    if (rc != 0) return fail(rc);
+    lastRc = 0;
+    _up = true;
+    _lastIn = _lastOut = millis();
+    return true;
+  }
+
+  void disconnect() {
+    if (tls.connected()) { const uint8_t d[2] = { 0xE0, 0x00 }; tls.write(d, 2); }
+    _up = false;
+    tls.stop();
+  }
+
+  bool subscribe(const char* topic) {
+    uint8_t body[128]; size_t n = 0;
+    body[n++] = 0; body[n++] = 1;                    // packet id 1
+    if (!putStr(body, n, sizeof(body), topic) || n >= sizeof(body)) return false;
+    body[n++] = 0;                                   // QoS 0
+    return sendPacket(0x82, body, n);
+  }
+
+  bool publish(const char* topic, const char* payload) {
+    uint8_t body[256]; size_t n = 0;
+    size_t plen = strlen(payload);
+    if (!putStr(body, n, sizeof(body), topic) || n + plen > sizeof(body)) return false;
+    memcpy(body + n, payload, plen); n += plen;
+    return sendPacket(0x30, body, n);
+  }
+
+  // Keepalive, then read at most one packet.  A 30 KB report takes a few tens of ms.
+  void loop() {
+    if (!_up) return;
+    if (!tls.connected()) { _up = false; tls.stop(); return; }
+    unsigned long now = millis();
+    if (now - _lastOut > MQTT_KEEPALIVE_S * 500UL) {          // ping at half the keepalive
+      const uint8_t ping[2] = { 0xC0, 0x00 };
+      if (tls.write(ping, 2) != 2) { disconnect(); return; }
+      _lastOut = now;
+    }
+    if (now - _lastIn > MQTT_KEEPALIVE_S * 2000UL) {          // nothing at all, not even PINGRESP
+      Serial.printf("[MQTT] Printer %d: no response from printer — dropping connection\n", index + 1);
+      disconnect(); return;
+    }
+    if (tls.available() <= 0) return;
+
+    uint8_t h; uint32_t rem;
+    if (!readByte(h, MQTT_READ_TIMEOUT_MS) || !readRemLen(rem)) { disconnect(); return; }
+    _lastIn = millis();
+    uint8_t type = h >> 4;
+
+    if (type == 3) {                                          // PUBLISH from the printer
+      uint8_t a, b;
+      if (rem < 2 || !readByte(a, MQTT_READ_TIMEOUT_MS) || !readByte(b, MQTT_READ_TIMEOUT_MS)) { disconnect(); return; }
+      uint32_t topicLen = ((uint32_t)a << 8) | b;
+      uint32_t hdr = 2 + topicLen + (((h >> 1) & 3) ? 2 : 0); // topic (+ packet id if QoS > 0)
+      if (hdr > rem || !skip(hdr - 2)) { disconnect(); return; }
+      PayloadReader in(tls, rem - hdr);                       // one subscription per link, so no topic check
+      if (onPublish) onPublish(in);
+      if (!in.drain()) { disconnect(); return; }
+    } else if (type == 9) {                                   // SUBACK
+      uint8_t buf[8]; uint32_t got = 0; bool ok = true;
+      while (got < rem) { uint8_t c; if (!readByte(c, MQTT_READ_TIMEOUT_MS)) { ok = false; break; } if (got < sizeof(buf)) buf[got] = c; got++; }
+      if (!ok) { disconnect(); return; }
+      Serial.printf("[MQTT] Printer %d: subscription %s\n", index + 1,
+                    (rem >= 3 && buf[2] != 0x80) ? "accepted" : "REFUSED");
+    } else if (!skip(rem)) {                                  // PINGRESP and anything else
+      disconnect();
+    }
+  }
+
+ private:
+  bool _up = false;
+  unsigned long _lastIn = 0, _lastOut = 0;
+
+  bool fail(int rc) { lastRc = rc; _up = false; tls.stop(); return false; }
+
+  static bool putStr(uint8_t* buf, size_t& n, size_t cap, const char* s) {
+    size_t len = strlen(s);
+    if (n + 2 + len > cap) return false;
+    buf[n++] = len >> 8; buf[n++] = len & 0xFF;
+    memcpy(buf + n, s, len); n += len;
+    return true;
+  }
+
+  bool sendPacket(uint8_t header, const uint8_t* body, size_t len) {
+    uint8_t hdr[5]; size_t h = 0;
+    hdr[h++] = header;
+    size_t x = len;
+    do { uint8_t d = x % 128; x /= 128; if (x) d |= 0x80; hdr[h++] = d; } while (x && h < 5);
+    if (tls.write(hdr, h) != h || tls.write(body, len) != len) return false;
+    _lastOut = millis();
+    return true;
+  }
+
+  bool readByte(uint8_t& out, unsigned long timeoutMs) {
+    unsigned long start = millis();
+    while (tls.available() <= 0) {
+      if (!tls.connected() || millis() - start > timeoutMs) return false;
+      delay(1);
+    }
+    int c = tls.read();
+    if (c < 0) return false;
+    out = (uint8_t)c;
+    return true;
+  }
+
+  bool readRemLen(uint32_t& len) {
+    len = 0; uint32_t mult = 1;
+    for (int i = 0; i < 4; i++) {
+      uint8_t d;
+      if (!readByte(d, MQTT_READ_TIMEOUT_MS)) return false;
+      len += (d & 0x7F) * mult;
+      if (!(d & 0x80)) return true;
+      mult *= 128;
+    }
+    return false;                                             // malformed length
+  }
+
+  bool skip(uint32_t n) {
+    uint8_t buf[64];
+    while (n) {
+      unsigned long start = millis();
+      while (tls.available() <= 0) {
+        if (!tls.connected() || millis() - start > MQTT_READ_TIMEOUT_MS) return false;
+        delay(1);
+      }
+      int r = tls.read(buf, min((uint32_t)sizeof(buf), n));
+      if (r <= 0) return false;
+      n -= r;
+    }
+    return true;
+  }
+};
+
 // One connection per printer — each printer is its own MQTT broker, so the
 // single shared cloud connection of the old firmware becomes two links here.
 struct PrinterLink {
-  WiFiClientSecure tls;
-  PubSubClient     mqtt{tls};           // member order matters: tls must exist first
+  LocalMqtt        mqtt;
   PrinterState     state;
   bool          wasConnected   = false;
   unsigned long connectedAt    = 0;
@@ -124,7 +348,7 @@ struct PrinterLink {
   unsigned long lastPushall    = 0;
   unsigned long lastDiscovery  = 0;
   int           failCount      = 0;
-  int           lastRc         = 0;     // last PubSubClient::state() on a failed connect
+  int           lastRc         = 0;     // last MQTT result code on a failed connect
   bool          warnedNoData   = false;
 };
 
@@ -263,10 +487,11 @@ int scale0to15(int raw) {   // 0-15 fan steps -> 0-100%, same curve as before
   return (raw <= 0) ? 0 : 10 + (constrain(raw, 0, 15) * 90) / 15;
 }
 
-void parseReport(const uint8_t* payload, unsigned int length, PrinterState& s) {
+// TReader is the PayloadReader on the ESP32 (or a plain string in the host tests)
+template <typename TReader>
+void parseReport(TReader& in, PrinterState& s) {
   JsonDocument doc;
-  DeserializationError err = deserializeJson(doc, payload, length,
-                                             DeserializationOption::Filter(reportFilter()));
+  DeserializationError err = deserializeJson(doc, in, DeserializationOption::Filter(reportFilter()));
   if (err) { Serial.printf("[MQTT] JSON parse error: %s\n", err.c_str()); return; }
 
   // Normally everything is under "print"; some messages put it at the root
@@ -432,8 +657,8 @@ bool connectPrinter(int i) {
   char clientId[80];
   snprintf(clientId, sizeof(clientId), "%s-p%d", cfg.device_name, i + 1);   // must be unique per connection
 
-  if (!L.mqtt.connect(clientId, BAMBU_LOCAL_USER, pc.access_code)) {
-    L.lastRc = L.mqtt.state();
+  if (!L.mqtt.connect(pc.ip, BAMBU_LOCAL_PORT, clientId, BAMBU_LOCAL_USER, pc.access_code)) {
+    L.lastRc = L.mqtt.lastRc;
     const char* why = (L.lastRc == 4 || L.lastRc == 5) ? "access code rejected" :
                       (L.lastRc <= -2)                 ? "printer unreachable"  : "refused";
     Serial.printf("[MQTT] Printer %d: connect failed, rc=%d (%s)\n", i + 1, L.lastRc, why);
@@ -444,7 +669,7 @@ bool connectPrinter(int i) {
   char topic[80];
   snprintf(topic, sizeof(topic), "device/%s/report", pc.serial);
   bool ok = L.mqtt.subscribe(topic);
-  Serial.printf("[MQTT] Printer %d: connected, subscribed %s — %s\n", i + 1, topic, ok ? "OK" : "FAILED");
+  Serial.printf("[MQTT] Printer %d: connected, subscribing to %s — %s\n", i + 1, topic, ok ? "sent" : "FAILED");
   Serial.printf("[Mem] Free heap %u bytes, largest block %u bytes\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
 
   resetPrinterState(i);
@@ -456,21 +681,14 @@ bool connectPrinter(int i) {
 
 void initPrinterLink(int i) {
   PrinterLink& L = links[i];
-  L.tls.setInsecure();                         // printers use a self-signed certificate
-  L.tls.setTimeout(TLS_CONNECT_TIMEOUT_S);
-  L.tls.setHandshakeTimeout(TLS_HANDSHAKE_TIMEOUT_S);
-  L.mqtt.setServer(cfg.printer[i].ip, BAMBU_LOCAL_PORT);
-  L.mqtt.setSocketTimeout(TLS_CONNECT_TIMEOUT_S);
-  L.mqtt.setKeepAlive(30);
-  L.mqtt.setCallback([i](char* topic, uint8_t* payload, unsigned int length) {
-    parseReport(payload, length, links[i].state);   // parse straight from PubSubClient's buffer — no 30 KB copy
+  L.mqtt.index = i;
+  L.mqtt.tls.setInsecure();                    // printers use a self-signed certificate
+  L.mqtt.tls.setTimeout(TLS_CONNECT_TIMEOUT_S);
+  L.mqtt.tls.setHandshakeTimeout(TLS_HANDSHAKE_TIMEOUT_S);
+  L.mqtt.onPublish = [i](PayloadReader& in) {
+    parseReport(in, links[i].state);           // parsed as it streams in — the message is never stored
     updateFanSpeed();
-  });
-
-  // Only an active printer gets the big buffer — a single-printer setup saves ~40 KB
-  uint16_t want = printerConfigured(i) ? MQTT_BUFFER_SIZE : 256;
-  if (!L.mqtt.setBufferSize(want))
-    Serial.printf("[MQTT] Printer %d: could not allocate %u byte buffer!\n", i + 1, want);
+  };
 
   L.wasConnected = false;
   L.failCount    = 0;
@@ -502,14 +720,19 @@ void loopPrinter(int i) {
 
   if (L.mqtt.connected()) {
     L.mqtt.loop();
-    if (now - L.lastPushall > PUSHALL_INTERVAL_MS) requestPushAll(i);
+    if (!L.mqtt.connected()) return;           // dropped during loop() — handled on the next pass
 
-    unsigned long silentFor = now - (L.state.has_data ? L.state.last_seen : L.connectedAt);
+    // Take a FRESH millis() here.  loop() may have just stamped last_seen, and
+    // the "now" captured above is older — older minus newer on an unsigned
+    // long wraps around to ~4.29 billion ms, which looked like 49 days of silence.
+    unsigned long t = millis();
+    if (t - L.lastPushall > PUSHALL_INTERVAL_MS) requestPushAll(i);
+
+    unsigned long silentFor = t - (L.state.has_data ? L.state.last_seen : L.connectedAt);
     if (!L.state.has_data && !L.warnedNoData && silentFor > NO_DATA_WARN_MS) {
       L.warnedNoData = true;
       Serial.printf("[MQTT] Printer %d: connected but no report yet — check the serial number "
-                    "(a wrong serial still subscribes fine) or the report may exceed the %u byte buffer\n",
-                    i + 1, (unsigned)MQTT_BUFFER_SIZE);
+                    "(a wrong serial still subscribes fine)\n", i + 1);
     }
     if (silentFor > STALE_DATA_MS) {
       Serial.printf("[MQTT] Printer %d: no data for %lus — reconnecting\n", i + 1, silentFor / 1000);
@@ -533,7 +756,6 @@ void loopPrinter(int i) {
   if (!strlen(cfg.printer[i].ip)) {
     if (now - L.lastDiscovery >= REDISCOVER_MIN_GAP_MS || L.lastDiscovery == 0) rediscoverPrinter(i);
     if (!strlen(cfg.printer[i].ip)) return;
-    L.mqtt.setServer(cfg.printer[i].ip, BAMBU_LOCAL_PORT);
   }
 
   if (connectPrinter(i)) {
@@ -549,11 +771,10 @@ void loopPrinter(int i) {
   // A wrong access code (rc 4/5) is not an addressing problem, so skip it.
   bool authProblem = (L.lastRc == 4 || L.lastRc == 5);
   if (!authProblem && L.failCount >= REDISCOVER_AFTER_FAILS &&
-      (L.lastDiscovery == 0 || now - L.lastDiscovery >= REDISCOVER_MIN_GAP_MS)) {
+      (L.lastDiscovery == 0 || millis() - L.lastDiscovery >= REDISCOVER_MIN_GAP_MS)) {
     char oldIp[16];
     strlcpy(oldIp, cfg.printer[i].ip, sizeof(oldIp));
     if (rediscoverPrinter(i) && strcmp(oldIp, cfg.printer[i].ip) != 0) {
-      L.mqtt.setServer(cfg.printer[i].ip, BAMBU_LOCAL_PORT);
       L.failCount   = 0;
       L.retryDelay  = MQTT_RECONNECT_MIN_MS;
       L.lastAttempt = millis() - MQTT_RECONNECT_MIN_MS;   // reconnect on the next pass
@@ -663,19 +884,27 @@ void resetRuntime() {
 //  HTML helpers
 // ══════════════════════════════════════════════════════════════════════════
 
-String loadHtmlFile(const char* path) {
+// Stream the page straight from flash in small chunks instead of loading the
+// whole file (up to ~18 KB) into a String first — RAM is tight with two
+// printer connections open.
+void sendHtmlFile(const char* path) {
   File f = LittleFS.open(path, "r");
-  if (!f) return "<h1>File not found: " + String(path) + "</h1>";
-  String html = f.readString();
+  if (!f) {
+    Serial.printf("[Web] %s is missing — run Platform -> Upload Filesystem Image in PlatformIO\n", path);
+    server.send(500, "text/html",
+      "<h2>Web files missing</h2><p>The controller's web pages were not found.  In PlatformIO run "
+      "<b>Platform &rarr; Upload Filesystem Image</b>, then restart the controller.</p>");
+    return;
+  }
+  server.streamFile(f, "text/html");
   f.close();
-  return html;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
 //  Config Portal (AP mode)
 // ══════════════════════════════════════════════════════════════════════════
 
-void handlePortalRoot() { server.send(200, "text/html", loadHtmlFile("/setup.html")); }
+void handlePortalRoot() { sendHtmlFile("/setup.html"); }
 
 void handlePortalSave() {
   if (server.method() != HTTP_POST) { server.send(405, "text/plain", "Method Not Allowed"); return; }
@@ -684,7 +913,7 @@ void handlePortalSave() {
   if (server.hasArg("device_name"))    strlcpy(cfg.device_name,    server.arg("device_name").c_str(),    sizeof(cfg.device_name));
   if (server.hasArg("dashboard_pass")) strlcpy(cfg.dashboard_pass, server.arg("dashboard_pass").c_str(), sizeof(cfg.dashboard_pass));
   if (saveConfig()) {
-    server.send(200, "text/html", loadHtmlFile("/saved.html"));
+    sendHtmlFile("/saved.html");
     delay(2000); ESP.restart();
   } else {
     server.send(500, "text/plain", "Failed to save config.");
@@ -730,8 +959,8 @@ bool checkAuth() {
   return true;
 }
 
-void handleDashboard()  { if (!checkAuth()) return; server.send(200, "text/html", loadHtmlFile("/index.html")); }
-void handleConfigPage() { if (!checkAuth()) return; server.send(200, "text/html", loadHtmlFile("/config.html")); }
+void handleDashboard()  { if (!checkAuth()) return; sendHtmlFile("/index.html"); }
+void handleConfigPage() { if (!checkAuth()) return; sendHtmlFile("/config.html"); }
 
 const char* linkStatusText(int i) {
   if (!printerConfigured(i))            return "not configured";
