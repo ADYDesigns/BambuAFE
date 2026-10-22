@@ -1,11 +1,11 @@
-![Bambu Overview Image](images/BambuAFEOverviewImage.jpg)
+   ![Bambu Overview Image](images/BambuAFEOverviewImage.jpg)
 
 # Bambu Automatic Fume Extractor (BambuAFE)
 This project intends to reduce the amount of harmful gases produced during the 3D printing process by creating a slight negative pressure in the chamber to reduce or eliminate them leaking out.  It does this by automatically controlling a fume extractor fan based on what your Bambu printers are doing.  It uses a 3D printed filter box with active charcoal and an ESP32 that talks directly to one or two Bambu printers over your local network, then ramps a set of fans up and down based on the printer status.  It also gives basic printer status information through a dashboard.
 
 No Bambu Cloud account, token, or internet connection is needed.  The controller connects straight to each printer over your local network using the printer's access code.  The printers stay in their normal mode and you do **not** need to turn on LAN Only mode or Developer Mode.  Bambu Handy and cloud printing work like normal.  The only requirement is that the controller and the printers are on the same network.
 
-Although the programming was designed around two printers it can easily be used for a single printer simply by omitting a second one during setup. You can either print the single-printer version of the box which has just one input and output, or use the two-printer box and cap the unused intake. Printing the two-printer box gives you the future option of adding a second printer without needing to reprint anything. Using more than two printers is also possible but is an advanced use case requiring some modifications to the code to monitor more than two printers.
+Although the programming was designed around two printers it can easily be used for a single printer simply by omitting a second one during setup.  You can either print the single-printer version of the box which has just one input and output, or use the two-printer box and cap the unused intake. Printing the two-printer box gives you the future option of adding a second printer without needing to reprint anything.  Using more than two printers is an advanced use case.  Each printer connection uses a fair amount of the ESP32's memory, so it would require modifying the code and likely an ESP32 board with extra memory (PSRAM).
 
 # Bill of Materials
 This is a list of materials that will be required.  These are my suggestions to have a successful project but if you are already experienced with electronics and microcontrollers you can of course change the items as you see fit.
@@ -39,7 +39,7 @@ This assembly guide is assuming you have everything from the bill of materials a
 2. Wire each of the components:
    1. Wire the panel mounted power connector to the wire connectors.  Shorten the wires as needed or coil them up.  At this point you may want to label the power connectors P and N or + and -.  [Image](images/Wiring-BarrelConnector.jpg)
    2. Wire the 12v to 5v converter to the power connectors.  In general Red is Positive (+) and Black is Negative (-) — check the labeling on your converter to confirm.  [Image](images/Wiring-PowerConverter.jpg)
-   3. Wire the fans' power wires to the power connectors. Depending on the fans you bought the connector should be labeled. Pin 1 should be ground (to the N or - power connector), Pin 2 should be +12v (to the P or + power connector), Pin 3 is not used, and Pin 4 is our PWM. Verify this information on the packaging or the manufacturer's website. These wires are small so you have a couple options:
+   3. Wire the fans' power wires to the power connectors.  Depending on the fans you bought the connector should be labeled.  Pin 1 should be ground (to the N or - power connector), Pin 2 should be +12v (to the P or + power connector), Pin 3 is not used, and Pin 4 is our PWM.  Verify this information on the packaging or the manufacturer's website. These wires are small so you have a couple options:
       1. Use a small screw driver and pop the metal connector out of the plastic plug.  This is the best option for the +12v and Ground wires as the metal connector will fit inside the power connectors when you flatten them down.  [Image](images/Wiring-FanWires1.jpg)
       2. Cut the wire then carefully strip about 1/2 an inch of insulation off the end.  Double the bare wire back onto itself and wrap it around to make it thicker.
       * Note: You may also want to label these wires although you only really need to label wire 1 since they are connected in the ribbon and you will know it's 1 through 4.  Sometimes wire 1 will have markings on the wire itself like a dashed white line.
@@ -50,10 +50,10 @@ This assembly guide is assuming you have everything from the bill of materials a
 4. Slide two honeycomb walls into the large channel in the middle of the box.  Fill the media bag about 1/2 full for the double and about 1/3 for the single then test fit into the channel.  You want it full to the top but not tightly packed.  If the walls bow a little it'll be fine.  Note active carbon can be dusty so either wear gloves or make sure to wash your hands afterward.  Also in the image mine is a little too full but it should be fine. [Image](images/ActiveCarbonAdded.jpg)
 5. If using a pre-filter slide two honeycomb walls into the small channel nearest the back of the box.  Cut the pre-filter to size and slide it in between the walls.  Note I am not using the pre filter as I will be venting Bambu printers that already should be doing this but it's added in case you are using other printers or enclosures.
 7. Screw on the mesh caps for the fan outputs.
-8. If you are using the two-printer box with only one printer, seal the unused intake with the solid cap. If you printed the single-printer box you can skip this step.
+8. If you are using the two-printer box with only one printer, seal the unused intake with the solid cap.  If you printed the single-printer box you can skip this step.
 
 # Installing the Software and Flashing the Controller
-For the programming side I will be using the free Microsoft Visual Studio Code program available at https://code.visualstudio.com/. You can also use the Arduino IDE if you are familiar with that but these instructions will use VS Code on a standard Windows 10+ machine. Please adjust for the system you are using.
+For the programming side I will be using the free Microsoft Visual Studio Code program available at https://code.visualstudio.com/.  You can also use the Arduino IDE if you are familiar with that but these instructions will use VS Code on a standard Windows 10+ machine.  Please adjust for the system you are using.
 
 Before plugging in the ESP32 you may need to install a USB driver so your computer can communicate with it.  The HiLetgo board uses a CP2102 USB chip.  Download and install the driver from https://www.silabs.com/software-and-tools/usb-to-uart-bridge-vcp-drivers?tab=downloads before continuing.  Without this driver Windows may not recognize the board when you plug it in.
 
