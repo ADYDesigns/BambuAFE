@@ -287,8 +287,12 @@
           <span class="info-value" id="info-ip">—</span>
         </div>
         <div class="info-row">
-          <span class="info-key">Bambu Cloud</span>
-          <span class="info-value" id="info-cloud">—</span>
+          <span class="info-key">Printer 1 link</span>
+          <span class="info-value" id="info-link1">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-key">Printer 2 link</span>
+          <span class="info-value" id="info-link2">—</span>
         </div>
       </div>
     </div>
@@ -315,11 +319,16 @@
           document.getElementById('uptime-value').textContent = up.main;
           document.getElementById('uptime-raw').textContent   = up.sub;
           document.getElementById('heap-value').innerHTML     = Math.round(d.free_heap / 1024) + '<span class="card-unit">KB</span>';
-          document.getElementById('heap-sub').textContent     = d.free_heap.toLocaleString() + ' bytes';
+          document.getElementById('heap-sub').textContent     = d.free_heap.toLocaleString() + ' bytes · largest block ' + Math.round((d.max_alloc_heap || 0) / 1024) + ' KB';
           document.getElementById('info-name').textContent    = d.device_name;
           document.getElementById('info-version').textContent = d.firmware_version || '—';
           document.getElementById('info-ip').textContent      = d.ip;
-          document.getElementById('info-cloud').textContent   = d.cloud_connected ? '✓ Connected' : '✗ Disconnected';
+          (d.printer_links || []).forEach((l, i) => {
+            const el = document.getElementById('info-link' + (i + 1));
+            if (!el) return;
+            const ok = l.status === 'connected';
+            el.textContent = (ok ? '✓ ' : l.configured ? '✗ ' : '') + l.status + (l.ip ? ' (' + l.ip + ')' : '');
+          });
           document.getElementById('device-name').textContent  = d.device_name;
           document.getElementById('last-updated').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
         })

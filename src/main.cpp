@@ -1,5 +1,5 @@
 /**
- * ESP32 BambuAFE — Cloud MQTT Edition
+ * ESP32 BambuAFE — Local (LAN) Edition
  * -------------------------------------
  * On first boot (no config.json found):
  *   - Starts a Wi-Fi Access Point named "BambuAFE-Setup"
@@ -10,8 +10,11 @@
  * On subsequent boots:
  *   - Reads config.json
  *   - Connects to Wi-Fi
- *   - Connects to Bambu Cloud MQTT broker using stored token and configured region
- *   - Subscribes to both printer report topics
+ *   - Connects DIRECTLY to each printer's own MQTT broker on the local network
+ *     (TLS, port 8883, user "bblp", password = the printer's LAN access code).
+ *     No Bambu Cloud account, token, Developer Mode or LAN-Only mode needed.
+ *   - Finds printers with SSDP discovery ("Find printers" on the config page)
+ *     and re-discovers a printer by serial number if its IP address changes
  *   - Parses print state and exhaust fan status to drive a shared PWM fan
  *   - Scales fan speed based on printer exhaust percentage
  *   - Tracks and saves fan runtime to /runtime.json every 10 minutes
@@ -22,13 +25,13 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <WiFiUdp.h>
 #include <WiFiClientSecure.h>
 #include <WebServer.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
 #include <ESPmDNS.h>
-#include <Adafruit_NeoPixel.h>
 
 // ─── Pin & timing constants ────────────────────────────────────────────────
 #define RESET_BUTTON_PIN   0
@@ -36,7 +39,7 @@
 #define AP_SSID            "BambuAFE-Setup"
 #define AP_PASSWORD        ""
 #define CONFIG_FILE        "/config.json"
-#define FIRMWARE_VERSION   "0.9.9"
+#define FIRMWARE_VERSION   "1.0.0"
 
 #define FAN1_PIN           16
 #define FAN2_PIN           17
@@ -44,45 +47,52 @@
 #define PWM_RESOLUTION     8
 #define PWM_CHANNEL_1      0
 #define PWM_CHANNEL_2      1
-
-#define BAMBU_CLOUD_PORT   8883
-#define MQTT_RECONNECT_MS  15000
 #define POT_PIN            35
 
-#define LED_R_PIN           25
-#define LED_G_PIN           26
-#define LED_B_PIN           27
-#define NEOPIXEL_PIN        32
-#define PWM_CHANNEL_R       2
-#define PWM_CHANNEL_G       3
-#define PWM_CHANNEL_B       4
-#define INDICATOR_STATE_CHECK_MS 1000  // how often to reevaluate connection state — it's slow-changing
-#define INDICATOR_BLINK_MS       500   // blink toggle interval (toggle every 500ms = 1 blink/sec)
+#define PRINTER_COUNT      2
+
+// Local MQTT — every Bambu printer runs its own broker
+#define BAMBU_LOCAL_PORT   8883
+#define BAMBU_LOCAL_USER   "bblp"
+// A local H2C report is a FULL status message of ~25-30 KB, about once a
+// second (measured on two H2Cs).  PubSubClient silently DROPS any message
+// larger than its buffer, so this must comfortably exceed the biggest report.
+// More AMS units = bigger reports, hence the headroom.
+#define MQTT_BUFFER_SIZE   40960
+#define TLS_CONNECT_TIMEOUT_S    4    // core default is 30 s — would freeze the loop if a printer is off
+#define TLS_HANDSHAKE_TIMEOUT_S  10   // core default is 120 s
+#define MQTT_RECONNECT_MIN_MS    15000
+#define MQTT_RECONNECT_MAX_MS    60000  // back off to this while a printer stays unreachable
+#define PUSHALL_INTERVAL_MS      300000 // full-status request every 5 min (P1/A1 printers dislike frequent pushall)
+#define NO_DATA_WARN_MS          30000  // connected but silent this long = warn in the serial log
+#define STALE_DATA_MS            360000 // connected but silent this long = drop and reconnect
+
+// SSDP discovery — printers answer an M-SEARCH sent to this multicast group
+#define SSDP_MULTICAST_IP        IPAddress(239, 255, 255, 250)
+#define SSDP_PORT_PRIMARY        1990   // H2C answered from this port
+#define SSDP_PORT_ALT            2021   // some other models/firmware use this one
+#define SSDP_WAIT_MS             2500
+#define SSDP_MAX_RESULTS         16     // printers listed per search (~136 bytes each, temporary)
+#define REDISCOVER_AFTER_FAILS   3      // connection failures before searching for a new IP
+#define REDISCOVER_MIN_GAP_MS    120000 // don't search more often than this per printer
 
 // ─── Global objects ────────────────────────────────────────────────────────
-WebServer        server(80);
-WiFiClientSecure tlsClient;
-PubSubClient     mqttClient(tlsClient);
-Adafruit_NeoPixel pixel(1, NEOPIXEL_PIN, NEO_RGB + NEO_KHZ800);
-// NEO_RGB, not the more common NEO_GRB — verify against whichever part you
-// source; swap to NEO_GRB if colors come out swapped once you test it.
-int lastMqttRc = 0;   // last PubSubClient::state() value we saw on a failed connect
+WebServer server(80);
 
 // ─── Config struct ─────────────────────────────────────────────────────────
+struct PrinterConfig {
+  char name[64]        = "";
+  char ip[16]          = "";   // dotted IPv4; may be filled in automatically by discovery
+  char serial[32]      = "";
+  char access_code[32] = "";   // the 8-character LAN access code shown on the printer's screen
+};
+
 struct Config {
   char wifi_ssid[64]      = "";
   char wifi_pass[64]      = "";
   char device_name[64]    = "BambuAFE-ESP32";
   char dashboard_pass[64] = "admin";
-  char bambu_region[8]    = "us";       // us or cn
-  char bambu_user_id[64]  = "";         // set via config page or PowerShell script
-  char bambu_token[512]   = "";         // set via config page or PowerShell script
-  char printer1_name[64]  = "";
-  char printer1_serial[32]= "";
-  int  printer1_gen       = 1;   // 1 = Gen 1 (X1C/P1S/A1), 2 = Gen 2 (H2C/H2S/H2D/P2S/X2D/A2L)
-  char printer2_name[64]  = "";
-  char printer2_serial[32]= "";
-  int  printer2_gen       = 1;
+  PrinterConfig printer[PRINTER_COUNT];
   int  fan_speed_printing        = 10;
   int  fan_speed_one_exhausting  = 50;
   int  fan_speed_both_exhausting = 100;
@@ -92,20 +102,33 @@ Config cfg;
 
 // ─── Printer runtime state ─────────────────────────────────────────────────
 struct PrinterState {
-  char  name[64]          = "";
-  int   gen               = 1;   // 1 = Gen 1, 2 = Gen 2
   char  gcode_state[32]   = "offline";
   int   progress          = 0;
   int   remaining_min     = 0;
+  int   exhaust_pct       = 0;      // already normalised to 0-100, whatever the model
   bool  exhausting        = false;
-  int   exhaust_fan_speed = 0;
-  bool  connected         = false;
-  bool  pushall_sent      = false;
+  bool  has_data          = false;  // at least one report parsed since connecting
   unsigned long last_seen = 0;
 };
 
-PrinterState p1state;
-PrinterState p2state;
+// One connection per printer — each printer is its own MQTT broker, so the
+// single shared cloud connection of the old firmware becomes two links here.
+struct PrinterLink {
+  WiFiClientSecure tls;
+  PubSubClient     mqtt{tls};           // member order matters: tls must exist first
+  PrinterState     state;
+  bool          wasConnected   = false;
+  unsigned long connectedAt    = 0;
+  unsigned long lastAttempt    = 0;
+  unsigned long retryDelay     = MQTT_RECONNECT_MIN_MS;
+  unsigned long lastPushall    = 0;
+  unsigned long lastDiscovery  = 0;
+  int           failCount      = 0;
+  int           lastRc         = 0;     // last PubSubClient::state() on a failed connect
+  bool          warnedNoData   = false;
+};
+
+PrinterLink links[PRINTER_COUNT];
 int currentFanPct = 0;
 
 // ─── Fan runtime tracking ──────────────────────────────────────────────────
@@ -116,6 +139,8 @@ unsigned long runtimeSecondAcc  = 0;   // accumulated milliseconds toward the ne
 
 #define RUNTIME_FILE       "/runtime.json"
 #define RUNTIME_SAVE_MS    600000      // save every 10 minutes
+
+bool saveConfig();  // forward declaration — used by the self-heal code before its definition
 
 // ══════════════════════════════════════════════════════════════════════════
 //  Potentiometer — manual fan override on GPIO 35
@@ -141,89 +166,6 @@ void initFans() {
   ledcWrite(PWM_CHANNEL_2, 0);
 }
 
-// ══════════════════════════════════════════════════════════════════════════
-//  Connection-status indicator LED (discrete RGB and/or addressable — both
-//  are always driven; whichever one is physically wired up just lights up)
-// ══════════════════════════════════════════════════════════════════════════
-
-void initIndicatorLed() {
-  ledcSetup(PWM_CHANNEL_R, PWM_FREQ, PWM_RESOLUTION);
-  ledcSetup(PWM_CHANNEL_G, PWM_FREQ, PWM_RESOLUTION);
-  ledcSetup(PWM_CHANNEL_B, PWM_FREQ, PWM_RESOLUTION);
-  ledcAttachPin(LED_R_PIN, PWM_CHANNEL_R);
-  ledcAttachPin(LED_G_PIN, PWM_CHANNEL_G);
-  ledcAttachPin(LED_B_PIN, PWM_CHANNEL_B);
-  ledcWrite(PWM_CHANNEL_R, 255);   // off (common-anode: 255=off, inverted)
-  ledcWrite(PWM_CHANNEL_G, 255);
-  ledcWrite(PWM_CHANNEL_B, 255);
-
-  pixel.begin();
-  pixel.setBrightness(64);        // dimmed — this runs 24/7, no need for full blast
-}
-
-enum IndicatorState : uint8_t {
-  IND_NOT_SETUP = 0,
-  IND_CONNECTED,
-  IND_RECONNECTING,
-  IND_AUTH_FAILURE
-};
-
-bool hasValidToken();  // forward declaration — defined further down, same pattern as saveRuntime()
-
-IndicatorState getIndicatorState() {
-  if (!hasValidToken())                     return IND_NOT_SETUP;
-  if (mqttClient.connected())                return IND_CONNECTED;
-  if (lastMqttRc == 4 || lastMqttRc == 5)    return IND_AUTH_FAILURE;
-  return IND_RECONNECTING;
-}
-
-void setIndicatorColor(uint8_t r, uint8_t g, uint8_t b) {
-  // Discrete common-anode RGB — inverted duty cycle. Harmless if unpopulated.
-  ledcWrite(PWM_CHANNEL_R, 255 - r);
-  ledcWrite(PWM_CHANNEL_G, 255 - g);
-  ledcWrite(PWM_CHANNEL_B, 255 - b);
-
-  // Addressable — harmless if unpopulated.
-  pixel.setPixelColor(0, pixel.Color(r, g, b));
-  pixel.show();
-}
-
-void updateIndicatorLed() {
-  static unsigned long lastStateCheck = 0;
-  static unsigned long lastBlink = 0;
-  static bool blinkOn = true;
-  static uint8_t lastR = 255, lastG = 255, lastB = 255;  // force first write
-  static IndicatorState cachedState = IND_NOT_SETUP;
-
-  unsigned long now = millis();
-
-  // Connection state is slow-changing (seconds, not milliseconds) — only
-  // actually re-check it once a second, and cache the result in between.
-  if (now - lastStateCheck >= INDICATOR_STATE_CHECK_MS) {
-    lastStateCheck = now;
-    cachedState = getIndicatorState();
-  }
-
-  // Blink timing runs independently of the state check above, so the
-  // toggle rate stays accurate regardless of how often the state itself
-  // is reevaluated.
-  uint8_t r = 0, g = 0, b = 0;
-  switch (cachedState) {
-    case IND_NOT_SETUP:      b = 255;             break;  // solid blue
-    case IND_CONNECTED:      g = 255;             break;  // solid green
-    case IND_RECONNECTING:   r = 255; g = 191;     break;  // solid amber
-    case IND_AUTH_FAILURE:
-      if (now - lastBlink >= INDICATOR_BLINK_MS) { lastBlink = now; blinkOn = !blinkOn; }
-      r = blinkOn ? 255 : 0;
-      break;
-  }
-
-  if (r != lastR || g != lastG || b != lastB) {   // same dedup instinct as setFanSpeed()
-    setIndicatorColor(r, g, b);
-    lastR = r; lastG = g; lastB = b;
-  }
-}
-
 void setFanSpeed(int pct) {
   pct = constrain(pct, 0, 100);
   if (pct == currentFanPct) return;
@@ -234,6 +176,15 @@ void setFanSpeed(int pct) {
   Serial.printf("[Fan] Speed set to %d%% (duty %d)\n", pct, duty);
 }
 
+bool printerConfigured(int i) {
+  return strlen(cfg.printer[i].serial) > 0 && strlen(cfg.printer[i].access_code) > 0;
+}
+
+// "Live" = connected to the printer AND we have parsed real data from it
+bool printerLive(int i) {
+  return printerConfigured(i) && links[i].mqtt.connected() && links[i].state.has_data;
+}
+
 void updateFanSpeed() {
   // Check for manual potentiometer override first
   int potPct = readPotentiometer();
@@ -242,29 +193,24 @@ void updateFanSpeed() {
     return;
   }
 
-  bool p1printing   = p1state.connected && (strcmp(p1state.gcode_state, "RUNNING") == 0);
-  bool p2printing   = p2state.connected && (strcmp(p2state.gcode_state, "RUNNING") == 0);
-  bool p1exhausting = p1state.connected && (p1state.exhaust_fan_speed > 0);
-  bool p2exhausting = p2state.connected && (p2state.exhaust_fan_speed > 0);
-
-  // Normalise exhaust to 0-100% for each printer
-  int p1pct = (p1state.gen == 1)
-    ? ((p1state.exhaust_fan_speed == 0) ? 0 : (10 + (constrain(p1state.exhaust_fan_speed, 0, 15) * 90) / 15))
-    : constrain(p1state.exhaust_fan_speed, 0, 100);
-  int p2pct = (p2state.gen == 1)
-    ? ((p2state.exhaust_fan_speed == 0) ? 0 : (10 + (constrain(p2state.exhaust_fan_speed, 0, 15) * 90) / 15))
-    : constrain(p2state.exhaust_fan_speed, 0, 100);
+  bool printing[PRINTER_COUNT], exhausting[PRINTER_COUNT];
+  int  pct[PRINTER_COUNT];
+  for (int i = 0; i < PRINTER_COUNT; i++) {
+    const PrinterState& s = links[i].state;
+    bool live     = printerLive(i);
+    printing[i]   = live && strcmp(s.gcode_state, "RUNNING") == 0;
+    exhausting[i] = live && s.exhausting;
+    pct[i]        = live ? s.exhaust_pct : 0;
+  }
 
   int targetPct = 0;
-
-  if (p1exhausting && p2exhausting) {
-    float avgExhaust = (p1pct + p2pct) / 2.0f;
+  if (exhausting[0] && exhausting[1]) {
+    float avgExhaust = (pct[0] + pct[1]) / 2.0f;
     targetPct = (int)(cfg.fan_speed_printing + (avgExhaust / 100.0f) * (cfg.fan_speed_both_exhausting - cfg.fan_speed_printing));
-  } else if (p1exhausting) {
-    targetPct = (int)(cfg.fan_speed_printing + (p1pct / 100.0f) * (cfg.fan_speed_one_exhausting - cfg.fan_speed_printing));
-  } else if (p2exhausting) {
-    targetPct = (int)(cfg.fan_speed_printing + (p2pct / 100.0f) * (cfg.fan_speed_one_exhausting - cfg.fan_speed_printing));
-  } else if (p1printing || p2printing) {
+  } else if (exhausting[0] || exhausting[1]) {
+    int p = exhausting[0] ? pct[0] : pct[1];
+    targetPct = (int)(cfg.fan_speed_printing + (p / 100.0f) * (cfg.fan_speed_one_exhausting - cfg.fan_speed_printing));
+  } else if (printing[0] || printing[1]) {
     targetPct = cfg.fan_speed_printing;
   }
 
@@ -272,270 +218,351 @@ void updateFanSpeed() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  Bambu Cloud authentication — token is configured via the web interface
-//  Use the PowerShell script or manual cookie method described in the README
-//  Token expires after ~3 months and must be updated via the config page
-// ══════════════════════════════════════════════════════════════════════════
-
-bool hasValidToken() {
-  return strlen(cfg.bambu_token) > 0 && strlen(cfg.bambu_user_id) > 0;
-}
-
-// ══════════════════════════════════════════════════════════════════════════
 //  MQTT payload parser
+//
+//  One parser for every model.  Instead of asking the user which "generation"
+//  a printer is, we look at which exhaust field the message actually contains:
+//    1. print.device.airduct.parts[func==2].state  — 0-100   (H2 series and newer)
+//    2. print.big_fan2_speed                       — 0-15    (X1/P1/A1; H2C sends it too)
+//    3. print.exhaust_fan_speed                    — 0-15    (legacy, rarely seen)
+//  The first one present wins, so a missing field never stops the fans.
 // ══════════════════════════════════════════════════════════════════════════
 
-void parseGen1Payload(JsonObject& print, PrinterState& state) {
-  // Gen 1: X1C, P1S, P1P, A1, A1 Mini
-  // Fields: gcode_state, mc_percent, mc_remaining_time,
-  //         exhaust_fan_speed, big_fan2_speed
-  const char* cmd = print["command"] | "";
-  bool hasStatusData = !print["gcode_state"].isNull()      ||
-                       !print["mc_percent"].isNull()        ||
-                       !print["exhaust_fan_speed"].isNull() ||
-                       !print["big_fan2_speed"].isNull();
-
-  if (strlen(cmd) > 0 && !hasStatusData) {
-    return;
-  }
-
-  if (!print["gcode_state"].isNull())       strlcpy(state.gcode_state, print["gcode_state"] | "IDLE", sizeof(state.gcode_state));
-  if (!print["mc_percent"].isNull())        state.progress      = print["mc_percent"].as<int>();
-  if (!print["mc_remaining_time"].isNull()) state.remaining_min = print["mc_remaining_time"].as<int>();
-  if (!print["exhaust_fan_speed"].isNull()) {
-    state.exhaust_fan_speed = print["exhaust_fan_speed"].as<int>();
-    state.exhausting        = (state.exhaust_fan_speed > 0);
-  } else if (!print["big_fan2_speed"].isNull()) {
-    // X1C reports exhaust fan as big_fan2_speed, scale 0-15
-    int fanSpeed = String(print["big_fan2_speed"] | "0").toInt();
-    state.exhaust_fan_speed = fanSpeed;
-    state.exhausting        = (fanSpeed > 0);
-  }
-}
-
-void parseGen2Payload(JsonObject& print, PrinterState& state) {
-  // Gen 2: H2C, H2S, H2D, P2S, X2D, A2L
-  // Status is inferred from mc_percent, layer_num, and the airduct exhaust fan
-  // gcode_state and mc_percent may still appear in some messages
-  const char* cmd = print["command"] | "";
-  bool hasStatusData = !print["gcode_state"].isNull()        ||
-                       !print["mc_percent"].isNull()          ||
-                       !print["device"]["extruder"].isNull()  ||
-                       !print["device"]["airduct"].isNull()   ||
-                       !print["layer_num"].isNull()           ||
-                       !print["3D"].isNull()                  ||
-                       !print["ams"].isNull();
-
-  if (strlen(cmd) > 0 && !hasStatusData) {
-    return;
-  }
-
-  // Standard fields (present in some Gen 2 messages)
-  if (!print["gcode_state"].isNull())
-    strlcpy(state.gcode_state, print["gcode_state"] | "IDLE", sizeof(state.gcode_state));
-  else if (strcmp(state.gcode_state, "offline") == 0)
-    strlcpy(state.gcode_state, "IDLE", sizeof(state.gcode_state));
-  if (!print["mc_percent"].isNull()) {
-    state.progress = print["mc_percent"].as<int>();
-    if (state.progress > 0 && state.progress < 100 &&
-        (strcmp(state.gcode_state, "offline") == 0 || strcmp(state.gcode_state, "IDLE") == 0))
-      strlcpy(state.gcode_state, "RUNNING", sizeof(state.gcode_state));
-  }
-  if (!print["mc_remaining_time"].isNull()) state.remaining_min = print["mc_remaining_time"].as<int>();
-
-  // layer_num indicates active printing for Gen 2
-  int layerNum = -1;
-  if (!print["layer_num"].isNull())            layerNum = print["layer_num"].as<int>();
-  else if (!print["3D"]["layer_num"].isNull()) layerNum = print["3D"]["layer_num"].as<int>();
-  if (layerNum >= 0) {
-    if (strcmp(state.gcode_state, "offline") == 0 || strcmp(state.gcode_state, "IDLE") == 0)
-      strlcpy(state.gcode_state, "RUNNING", sizeof(state.gcode_state));
-  }
-  if (!print["exhaust_fan_speed"].isNull()) {
-    state.exhaust_fan_speed = print["exhaust_fan_speed"].as<int>();
-    state.exhausting        = (state.exhaust_fan_speed > 0);
-  }
-
-  // Gen 2 airduct — exhaust fan is func=2 in device.airduct.parts
-  JsonArray airductParts = print["device"]["airduct"]["parts"];
-  if (!airductParts.isNull()) {
-    for (JsonObject part : airductParts) {
-      if ((part["func"] | -1) == 2) {
-        int fanState = part["state"] | 0;
-        state.exhaust_fan_speed = fanState;
-        state.exhausting        = (fanState > 0);
-        break;
-      }
+// The filter tells ArduinoJson which fields to keep.  Everything else in the
+// ~30 KB report is skipped while parsing, so the document stays a few hundred
+// bytes instead of tens of KB.  The [0] entry of an array filter applies to
+// every element of that array.
+const JsonDocument& reportFilter() {
+  static JsonDocument filter;
+  static bool built = false;
+  if (!built) {
+    for (JsonObject p : { filter["print"].to<JsonObject>(), filter.as<JsonObject>() }) {
+      p["gcode_state"]       = true;
+      p["mc_percent"]        = true;
+      p["mc_remaining_time"] = true;
+      p["layer_num"]         = true;
+      p["big_fan2_speed"]    = true;
+      p["exhaust_fan_speed"] = true;
+      JsonObject part = p["device"]["airduct"]["parts"][0].to<JsonObject>();
+      part["func"]  = true;
+      part["state"] = true;
     }
+    built = true;
   }
+  return filter;
 }
 
-void parseBambuPayload(const char* payload, PrinterState& state) {
-  if (strlen(payload) < 3) return;  // skip empty {} heartbeats
+// Bambu sends some numbers as strings ("4") and some as numbers (4).
+// Handle both explicitly rather than trusting an implicit conversion.
+int jsonInt(JsonVariantConst v) {
+  if (v.is<const char*>()) return atoi(v.as<const char*>());
+  return v.as<int>();
+}
 
+int scale0to15(int raw) {   // 0-15 fan steps -> 0-100%, same curve as before
+  return (raw <= 0) ? 0 : 10 + (constrain(raw, 0, 15) * 90) / 15;
+}
+
+void parseReport(const uint8_t* payload, unsigned int length, PrinterState& s) {
   JsonDocument doc;
-  if (deserializeJson(doc, payload)) return;
+  DeserializationError err = deserializeJson(doc, payload, length,
+                                             DeserializationOption::Filter(reportFilter()));
+  if (err) { Serial.printf("[MQTT] JSON parse error: %s\n", err.c_str()); return; }
 
-  state.connected = true;
-  state.last_seen = millis();
+  // Normally everything is under "print"; some messages put it at the root
+  JsonObject p = doc["print"].is<JsonObject>() ? doc["print"].as<JsonObject>()
+                                               : doc.as<JsonObject>();
+  if (p.isNull() || p.size() == 0) return;   // nothing we care about (e.g. an info reply)
 
-  JsonObject print = doc["print"];
-  if (print.isNull()) {
-    // Gen 2 sometimes sends data at the root level without a "print" wrapper
-    if (state.gen == 2 && (!doc["device"].isNull() || !doc["command"].isNull())) {
-      JsonObject root = doc.as<JsonObject>();
-      parseGen2Payload(root, state);
-      updateFanSpeed();
-    }
-    return;
+  s.last_seen = millis();
+  s.has_data  = true;
+
+  bool hadState = !p["gcode_state"].isNull();
+  if (hadState)
+    strlcpy(s.gcode_state, p["gcode_state"] | "IDLE", sizeof(s.gcode_state));
+  else if (strcmp(s.gcode_state, "offline") == 0)
+    strlcpy(s.gcode_state, "IDLE", sizeof(s.gcode_state));
+
+  if (!p["mc_percent"].isNull())        s.progress      = jsonInt(p["mc_percent"]);
+  if (!p["mc_remaining_time"].isNull()) s.remaining_min = jsonInt(p["mc_remaining_time"]);
+
+  // Partial messages (P1/A1 send changes only) may omit gcode_state —
+  // infer "printing" from progress/layer if we have nothing better.
+  if (!hadState && strcmp(s.gcode_state, "IDLE") == 0) {
+    bool midPrint = (s.progress > 0 && s.progress < 100) ||
+                    (!p["layer_num"].isNull() && jsonInt(p["layer_num"]) > 0);
+    if (midPrint) strlcpy(s.gcode_state, "RUNNING", sizeof(s.gcode_state));
   }
 
-  if (state.gen == 2)
-    parseGen2Payload(print, state);
-  else
-    parseGen1Payload(print, state);
+  int pct = -1;
+  JsonArray parts = p["device"]["airduct"]["parts"];
+  for (JsonObject part : parts) {
+    if (jsonInt(part["func"]) == 2) { pct = constrain(jsonInt(part["state"]), 0, 100); break; }
+  }
+  if (pct < 0 && !p["big_fan2_speed"].isNull())    pct = scale0to15(jsonInt(p["big_fan2_speed"]));
+  if (pct < 0 && !p["exhaust_fan_speed"].isNull()) pct = scale0to15(jsonInt(p["exhaust_fan_speed"]));
 
-  updateFanSpeed();
+  if (pct >= 0) {
+    s.exhaust_pct = pct;
+    s.exhausting  = pct > 0;
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-//  MQTT callback — routes by topic serial number
+//  SSDP discovery — find Bambu printers on the local network
+//
+//  We send one M-SEARCH to the SSDP multicast group.  Each printer answers
+//  with a small HTTP-style reply sent straight back (unicast) to the port we
+//  sent from, so the same UDP socket both sends and listens.  Useful headers:
+//    Location: <ip>   USN: <serial>   DevName.bambu.com: <name>
+//    DevModel.bambu.com: <model code, e.g. O1C2 = H2C>
 // ══════════════════════════════════════════════════════════════════════════
 
-void onMqttMessage(char* topic, byte* payload, unsigned int length) {
-  String msg((char*)payload, length);
+struct FoundPrinter {
+  char ip[16]     = "";
+  char serial[32] = "";
+  char name[64]   = "";
+  char model[24]  = "";
+};
 
-  // Match topic to printer by serial number
-  if (strlen(cfg.printer1_serial) && strstr(topic, cfg.printer1_serial))
-    parseBambuPayload(msg.c_str(), p1state);
-  else if (strlen(cfg.printer2_serial) && strstr(topic, cfg.printer2_serial))
-    parseBambuPayload(msg.c_str(), p2state);
-}
-
-// ══════════════════════════════════════════════════════════════════════════
-//  MQTT connection & loop
-// ══════════════════════════════════════════════════════════════════════════
-
-void requestPushAll(const char* serial, PrinterState& state) {
-  char reqTopic[80];
-  snprintf(reqTopic, sizeof(reqTopic), "device/%s/request", serial);
-  const char* pushCmd = "{\"pushing\":{\"command\":\"pushall\"}}";
-  if (!mqttClient.publish(reqTopic, pushCmd))
-    Serial.printf("[MQTT] pushall failed for %s\n", serial);
-  state.pushall_sent = true;
-}
-
-bool connectMqtt() {
-  if (!hasValidToken()) return false;
-
-  tlsClient.setInsecure();
-  const char* mqttHost = (strcmp(cfg.bambu_region, "cn") == 0)
-                         ? "cn.mqtt.bambulab.com"
-                         : "us.mqtt.bambulab.com";
-  mqttClient.setServer(mqttHost, BAMBU_CLOUD_PORT);
-  mqttClient.setBufferSize(8192);
-  mqttClient.setCallback(onMqttMessage);
-
-  // Cloud MQTT: username = u_{user_id}, password = token
-  char mqttUser[80];
-  char clientId[64];
-  snprintf(mqttUser,  sizeof(mqttUser),  "u_%s", cfg.bambu_user_id);
-  snprintf(clientId, sizeof(clientId), "bambuafe-%s", cfg.device_name);
-
-  Serial.printf("[MQTT] Connecting to %s as %s...\n", mqttHost, mqttUser);
-  if (!mqttClient.connect(clientId, mqttUser, cfg.bambu_token)) {
-    lastMqttRc = mqttClient.state();
-    Serial.printf("[MQTT] Connection failed, rc=%d\n", lastMqttRc);
-    return false;
-  }
-
-  lastMqttRc = 0;
-  Serial.println("[MQTT] Connected to Bambu Cloud");
-
-  // Subscribe to both printer report topics
-  if (strlen(cfg.printer1_serial)) {
-    char topic[80];
-    snprintf(topic, sizeof(topic), "device/%s/report", cfg.printer1_serial);
-    bool ok = mqttClient.subscribe(topic, 1);
-    p1state.pushall_sent = false;
-    Serial.printf("[MQTT] Subscribed: %s — %s\n", topic, ok ? "OK" : "FAILED");
-  }
-  if (strlen(cfg.printer2_serial)) {
-    char topic[80];
-    snprintf(topic, sizeof(topic), "device/%s/report", cfg.printer2_serial);
-    bool ok = mqttClient.subscribe(topic, 1);
-    p2state.pushall_sent = false;
-    Serial.printf("[MQTT] Subscribed: %s — %s\n", topic, ok ? "OK" : "FAILED");
-  }
-
+// Copy the value of "Header: value" if this line starts with that header (case-insensitive)
+bool headerValue(const char* line, const char* header, char* out, size_t outLen) {
+  size_t hl = strlen(header);
+  if (strncasecmp(line, header, hl) != 0 || line[hl] != ':') return false;
+  const char* v = line + hl + 1;
+  while (*v == ' ') v++;
+  strlcpy(out, v, outLen);
   return true;
 }
 
-void initMqtt() {
-  strlcpy(p1state.name, cfg.printer1_name, sizeof(p1state.name));
-  p1state.gen = cfg.printer1_gen;
-  strlcpy(p2state.name, cfg.printer2_name, sizeof(p2state.name));
-  p2state.gen = cfg.printer2_gen;
-  if (!hasValidToken()) {
-    Serial.println("[MQTT] No token configured — skipping MQTT connect");
+int discoverPrinters(FoundPrinter* found, int maxFound, unsigned long waitMs = SSDP_WAIT_MS) {
+  WiFiUDP udp;
+  if (!udp.begin(0)) { Serial.println("[SSDP] Could not open UDP socket"); return 0; }   // 0 = any free port
+
+  const char* msearch =
+    "M-SEARCH * HTTP/1.1\r\n"
+    "HOST: 239.255.255.250:1900\r\n"
+    "MAN: \"ssdp:discover\"\r\n"
+    "MX: 2\r\n"
+    "ST: urn:bambulab-com:device:3dprinter:1\r\n\r\n";
+  for (uint16_t port : { (uint16_t)SSDP_PORT_PRIMARY, (uint16_t)SSDP_PORT_ALT }) {
+    udp.beginPacket(SSDP_MULTICAST_IP, port);
+    udp.write((const uint8_t*)msearch, strlen(msearch));
+    udp.endPacket();
+  }
+
+  int count = 0;
+  char buf[1024];
+  unsigned long start = millis();
+  while (millis() - start < waitMs) {
+    int len = udp.parsePacket();
+    if (len <= 0) { delay(10); continue; }
+    len = udp.read(buf, sizeof(buf) - 1);
+    if (len <= 0) continue;
+    buf[len] = '\0';
+    if (strncmp(buf, "M-SEARCH", 8) == 0) continue;   // someone else's search, not a printer
+
+    FoundPrinter fp;
+    bool isBambu = false;
+    for (char* line = strtok(buf, "\r\n"); line; line = strtok(nullptr, "\r\n")) {
+      headerValue(line, "Location", fp.ip, sizeof(fp.ip));
+      headerValue(line, "USN", fp.serial, sizeof(fp.serial));
+      headerValue(line, "DevName.bambu.com", fp.name, sizeof(fp.name));
+      if (headerValue(line, "DevModel.bambu.com", fp.model, sizeof(fp.model))) isBambu = true;
+    }
+    if (!isBambu || !strlen(fp.serial)) continue;
+    if (!strlen(fp.ip)) strlcpy(fp.ip, udp.remoteIP().toString().c_str(), sizeof(fp.ip));
+
+    bool dup = false;
+    for (int i = 0; i < count; i++) if (strcmp(found[i].serial, fp.serial) == 0) dup = true;
+    if (!dup && count < maxFound) {
+      found[count++] = fp;
+      Serial.printf("[SSDP] Found %s (%s) at %s, model %s\n", fp.name, fp.serial, fp.ip, fp.model);
+    }
+  }
+  udp.stop();
+  return count;
+}
+
+// Self-heal: look for this printer's serial number and adopt its current IP.
+// Returns true if the IP was found (changed or not).
+bool rediscoverPrinter(int i) {
+  PrinterLink& L = links[i];
+  L.lastDiscovery = millis();
+  Serial.printf("[SSDP] Searching for printer %d (%s)...\n", i + 1, cfg.printer[i].serial);
+
+  FoundPrinter found[SSDP_MAX_RESULTS];
+  int n = discoverPrinters(found, SSDP_MAX_RESULTS);
+  for (int k = 0; k < n; k++) {
+    if (strcasecmp(found[k].serial, cfg.printer[i].serial) != 0) continue;
+    if (strcmp(found[k].ip, cfg.printer[i].ip) != 0) {
+      Serial.printf("[SSDP] Printer %d moved: %s -> %s — saving new address\n",
+                    i + 1, strlen(cfg.printer[i].ip) ? cfg.printer[i].ip : "(none)", found[k].ip);
+      strlcpy(cfg.printer[i].ip, found[k].ip, sizeof(cfg.printer[i].ip));
+      saveConfig();
+    }
+    return true;
+  }
+  Serial.printf("[SSDP] Printer %d not found — is it powered on and on this network?\n", i + 1);
+  return false;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  MQTT connection & loop — one link per printer
+// ══════════════════════════════════════════════════════════════════════════
+
+void requestPushAll(int i) {
+  char topic[80];
+  snprintf(topic, sizeof(topic), "device/%s/request", cfg.printer[i].serial);
+  if (!links[i].mqtt.publish(topic, "{\"pushing\":{\"command\":\"pushall\"}}"))
+    Serial.printf("[MQTT] pushall failed for printer %d\n", i + 1);
+  links[i].lastPushall = millis();
+}
+
+void resetPrinterState(int i) {
+  links[i].state = PrinterState();
+  links[i].warnedNoData = false;
+}
+
+bool connectPrinter(int i) {
+  PrinterLink& L = links[i];
+  PrinterConfig& pc = cfg.printer[i];
+
+  Serial.printf("[MQTT] Printer %d: connecting to %s...\n", i + 1, pc.ip);
+  char clientId[80];
+  snprintf(clientId, sizeof(clientId), "%s-p%d", cfg.device_name, i + 1);   // must be unique per connection
+
+  if (!L.mqtt.connect(clientId, BAMBU_LOCAL_USER, pc.access_code)) {
+    L.lastRc = L.mqtt.state();
+    const char* why = (L.lastRc == 4 || L.lastRc == 5) ? "access code rejected" :
+                      (L.lastRc <= -2)                 ? "printer unreachable"  : "refused";
+    Serial.printf("[MQTT] Printer %d: connect failed, rc=%d (%s)\n", i + 1, L.lastRc, why);
+    return false;
+  }
+
+  L.lastRc = 0;
+  char topic[80];
+  snprintf(topic, sizeof(topic), "device/%s/report", pc.serial);
+  bool ok = L.mqtt.subscribe(topic);
+  Serial.printf("[MQTT] Printer %d: connected, subscribed %s — %s\n", i + 1, topic, ok ? "OK" : "FAILED");
+  Serial.printf("[Mem] Free heap %u bytes, largest block %u bytes\n", ESP.getFreeHeap(), ESP.getMaxAllocHeap());
+
+  resetPrinterState(i);
+  L.wasConnected = true;
+  L.connectedAt  = millis();
+  requestPushAll(i);
+  return true;
+}
+
+void initPrinterLink(int i) {
+  PrinterLink& L = links[i];
+  L.tls.setInsecure();                         // printers use a self-signed certificate
+  L.tls.setTimeout(TLS_CONNECT_TIMEOUT_S);
+  L.tls.setHandshakeTimeout(TLS_HANDSHAKE_TIMEOUT_S);
+  L.mqtt.setServer(cfg.printer[i].ip, BAMBU_LOCAL_PORT);
+  L.mqtt.setSocketTimeout(TLS_CONNECT_TIMEOUT_S);
+  L.mqtt.setKeepAlive(30);
+  L.mqtt.setCallback([i](char* topic, uint8_t* payload, unsigned int length) {
+    parseReport(payload, length, links[i].state);   // parse straight from PubSubClient's buffer — no 30 KB copy
+    updateFanSpeed();
+  });
+
+  // Only an active printer gets the big buffer — a single-printer setup saves ~40 KB
+  uint16_t want = printerConfigured(i) ? MQTT_BUFFER_SIZE : 256;
+  if (!L.mqtt.setBufferSize(want))
+    Serial.printf("[MQTT] Printer %d: could not allocate %u byte buffer!\n", i + 1, want);
+
+  L.wasConnected = false;
+  L.failCount    = 0;
+  L.lastRc       = 0;
+  L.retryDelay   = MQTT_RECONNECT_MIN_MS;
+  L.lastAttempt  = millis() - MQTT_RECONNECT_MIN_MS;   // try right away
+  resetPrinterState(i);
+}
+
+void initPrinters() {
+  for (int i = 0; i < PRINTER_COUNT; i++) {
+    initPrinterLink(i);
+    if (!printerConfigured(i)) Serial.printf("[MQTT] Printer %d not configured — skipping\n", i + 1);
+  }
+}
+
+void reinitPrinters() {
+  Serial.println("[MQTT] Reinitialising printer connections...");
+  for (int i = 0; i < PRINTER_COUNT; i++)
+    if (links[i].mqtt.connected()) links[i].mqtt.disconnect();
+  initPrinters();
+  updateFanSpeed();
+}
+
+void loopPrinter(int i) {
+  PrinterLink& L = links[i];
+  if (!printerConfigured(i)) return;
+  unsigned long now = millis();
+
+  if (L.mqtt.connected()) {
+    L.mqtt.loop();
+    if (now - L.lastPushall > PUSHALL_INTERVAL_MS) requestPushAll(i);
+
+    unsigned long silentFor = now - (L.state.has_data ? L.state.last_seen : L.connectedAt);
+    if (!L.state.has_data && !L.warnedNoData && silentFor > NO_DATA_WARN_MS) {
+      L.warnedNoData = true;
+      Serial.printf("[MQTT] Printer %d: connected but no report yet — check the serial number "
+                    "(a wrong serial still subscribes fine) or the report may exceed the %u byte buffer\n",
+                    i + 1, (unsigned)MQTT_BUFFER_SIZE);
+    }
+    if (silentFor > STALE_DATA_MS) {
+      Serial.printf("[MQTT] Printer %d: no data for %lus — reconnecting\n", i + 1, silentFor / 1000);
+      L.mqtt.disconnect();
+    }
     return;
   }
-  connectMqtt();
-}
 
-void reinitMqtt() {
-  Serial.println("[MQTT] Reinitialising...");
-  if (mqttClient.connected()) mqttClient.disconnect();
-  p1state = PrinterState();
-  p2state = PrinterState();
-  updateFanSpeed();
-  initMqtt();
-}
-
-void loopMqtt() {
-  static unsigned long lastReconnect   = 0;
-  static unsigned long lastPushall1    = 0;
-  static unsigned long lastPushall2    = 0;
-
-  if (mqttClient.connected()) {
-    mqttClient.loop();
-
-    // Send pushall on connect, then every 45s to keep status fresh
-    if (strlen(cfg.printer1_serial)) {
-      if (!p1state.pushall_sent || millis() - lastPushall1 > 45000) {
-        lastPushall1 = millis();
-        requestPushAll(cfg.printer1_serial, p1state);
-      }
-    }
-    if (strlen(cfg.printer2_serial)) {
-      if (!p2state.pushall_sent || millis() - lastPushall2 > 45000) {
-        lastPushall2 = millis();
-        requestPushAll(cfg.printer2_serial, p2state);
-      }
-    }
-  } else if (hasValidToken() && millis() - lastReconnect > MQTT_RECONNECT_MS) {
-    lastReconnect = millis();
-    Serial.println("[MQTT] Reconnecting...");
-    p1state.connected    = false;
-    p2state.connected    = false;
-    p1state.pushall_sent = false;
-    p2state.pushall_sent = false;
-    connectMqtt();
-  }
-
-  // Mark printer offline if no message received for 60s
-  if (p1state.connected && p1state.last_seen && millis() - p1state.last_seen > 60000) {
-    p1state.connected = false;
-    strlcpy(p1state.gcode_state, "offline", sizeof(p1state.gcode_state));
-    p1state.exhausting = false; p1state.exhaust_fan_speed = 0;
+  // Just lost the connection — clear the state so the fans stop following stale data
+  if (L.wasConnected) {
+    L.wasConnected = false;
+    Serial.printf("[MQTT] Printer %d: disconnected\n", i + 1);
+    resetPrinterState(i);
     updateFanSpeed();
   }
-  if (p2state.connected && p2state.last_seen && millis() - p2state.last_seen > 60000) {
-    p2state.connected = false;
-    strlcpy(p2state.gcode_state, "offline", sizeof(p2state.gcode_state));
-    p2state.exhausting = false; p2state.exhaust_fan_speed = 0;
-    updateFanSpeed();
+
+  if (now - L.lastAttempt < L.retryDelay) return;
+  L.lastAttempt = now;
+
+  // No IP yet (e.g. upgraded from the cloud firmware) — go straight to discovery
+  if (!strlen(cfg.printer[i].ip)) {
+    if (now - L.lastDiscovery >= REDISCOVER_MIN_GAP_MS || L.lastDiscovery == 0) rediscoverPrinter(i);
+    if (!strlen(cfg.printer[i].ip)) return;
+    L.mqtt.setServer(cfg.printer[i].ip, BAMBU_LOCAL_PORT);
   }
+
+  if (connectPrinter(i)) {
+    L.failCount  = 0;
+    L.retryDelay = MQTT_RECONNECT_MIN_MS;
+    return;
+  }
+
+  L.failCount++;
+  L.retryDelay = min((unsigned long)MQTT_RECONNECT_MAX_MS, L.retryDelay * 2);
+
+  // Self-heal: the printer may simply have a new IP address from DHCP.
+  // A wrong access code (rc 4/5) is not an addressing problem, so skip it.
+  bool authProblem = (L.lastRc == 4 || L.lastRc == 5);
+  if (!authProblem && L.failCount >= REDISCOVER_AFTER_FAILS &&
+      (L.lastDiscovery == 0 || now - L.lastDiscovery >= REDISCOVER_MIN_GAP_MS)) {
+    char oldIp[16];
+    strlcpy(oldIp, cfg.printer[i].ip, sizeof(oldIp));
+    if (rediscoverPrinter(i) && strcmp(oldIp, cfg.printer[i].ip) != 0) {
+      L.mqtt.setServer(cfg.printer[i].ip, BAMBU_LOCAL_PORT);
+      L.failCount   = 0;
+      L.retryDelay  = MQTT_RECONNECT_MIN_MS;
+      L.lastAttempt = millis() - MQTT_RECONNECT_MIN_MS;   // reconnect on the next pass
+    }
+  }
+}
+
+void loopPrinters() {
+  for (int i = 0; i < PRINTER_COUNT; i++) loopPrinter(i);
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -543,6 +570,10 @@ void loopMqtt() {
 // ══════════════════════════════════════════════════════════════════════════
 
 bool configExists() { return LittleFS.exists(CONFIG_FILE); }
+
+// Keys are printer1_name, printer1_ip, ... — name and serial keep the same
+// keys as the cloud firmware, so they carry over after an upgrade.
+String pkey(int i, const char* field) { return "printer" + String(i + 1) + "_" + field; }
 
 bool loadConfig() {
   File f = LittleFS.open(CONFIG_FILE, "r");
@@ -555,19 +586,16 @@ bool loadConfig() {
   strlcpy(cfg.wifi_pass,       doc["wifi_pass"]       | "",               sizeof(cfg.wifi_pass));
   strlcpy(cfg.device_name,     doc["device_name"]     | "BambuAFE-ESP32", sizeof(cfg.device_name));
   strlcpy(cfg.dashboard_pass,  doc["dashboard_pass"]  | "admin",          sizeof(cfg.dashboard_pass));
-  strlcpy(cfg.bambu_region,    doc["bambu_region"]    | "us",             sizeof(cfg.bambu_region));
-  strlcpy(cfg.bambu_user_id,   doc["bambu_user_id"]   | "",               sizeof(cfg.bambu_user_id));
-  strlcpy(cfg.bambu_token,     doc["bambu_token"]     | "",               sizeof(cfg.bambu_token));
-  strlcpy(cfg.printer1_name,   doc["printer1_name"]   | "",               sizeof(cfg.printer1_name));
-  strlcpy(cfg.printer1_serial, doc["printer1_serial"] | "",               sizeof(cfg.printer1_serial));
-  cfg.printer1_gen              = doc["printer1_gen"]              | 1;
-  strlcpy(cfg.printer2_name,   doc["printer2_name"]   | "",               sizeof(cfg.printer2_name));
-  strlcpy(cfg.printer2_serial, doc["printer2_serial"] | "",               sizeof(cfg.printer2_serial));
-  cfg.printer2_gen              = doc["printer2_gen"]              | 1;
-  cfg.fan_speed_printing            = doc["fan_speed_printing"]            | 10;
-  cfg.fan_speed_one_exhausting      = doc["fan_speed_one_exhausting"]      | 50;
-  cfg.fan_speed_both_exhausting     = doc["fan_speed_both_exhausting"]     | 100;
-
+  for (int i = 0; i < PRINTER_COUNT; i++) {
+    PrinterConfig& pc = cfg.printer[i];
+    strlcpy(pc.name,        doc[pkey(i, "name")]        | "", sizeof(pc.name));
+    strlcpy(pc.ip,          doc[pkey(i, "ip")]          | "", sizeof(pc.ip));
+    strlcpy(pc.serial,      doc[pkey(i, "serial")]      | "", sizeof(pc.serial));
+    strlcpy(pc.access_code, doc[pkey(i, "access_code")] | "", sizeof(pc.access_code));
+  }
+  cfg.fan_speed_printing        = doc["fan_speed_printing"]        | 10;
+  cfg.fan_speed_one_exhausting  = doc["fan_speed_one_exhausting"]  | 50;
+  cfg.fan_speed_both_exhausting = doc["fan_speed_both_exhausting"] | 100;
   return true;
 }
 
@@ -575,21 +603,18 @@ bool saveConfig() {
   File f = LittleFS.open(CONFIG_FILE, "w");
   if (!f) return false;
   JsonDocument doc;
-  doc["wifi_ssid"]               = cfg.wifi_ssid;
-  doc["wifi_pass"]               = cfg.wifi_pass;
-  doc["device_name"]             = cfg.device_name;
-  doc["dashboard_pass"]          = cfg.dashboard_pass;
-  doc["bambu_region"]            = cfg.bambu_region;
-  doc["bambu_user_id"]           = cfg.bambu_user_id;
-  doc["bambu_token"]             = cfg.bambu_token;
-  doc["printer1_name"]           = cfg.printer1_name;
-  doc["printer1_serial"]         = cfg.printer1_serial;
-  doc["printer1_gen"]            = cfg.printer1_gen;
-  doc["printer2_name"]           = cfg.printer2_name;
-  doc["printer2_serial"]         = cfg.printer2_serial;
-  doc["printer2_gen"]            = cfg.printer2_gen;
-  doc["fan_speed_printing"]      = cfg.fan_speed_printing;
-  doc["fan_speed_one_exhausting"] = cfg.fan_speed_one_exhausting;
+  doc["wifi_ssid"]      = cfg.wifi_ssid;
+  doc["wifi_pass"]      = cfg.wifi_pass;
+  doc["device_name"]    = cfg.device_name;
+  doc["dashboard_pass"] = cfg.dashboard_pass;
+  for (int i = 0; i < PRINTER_COUNT; i++) {
+    doc[pkey(i, "name")]        = cfg.printer[i].name;
+    doc[pkey(i, "ip")]          = cfg.printer[i].ip;
+    doc[pkey(i, "serial")]      = cfg.printer[i].serial;
+    doc[pkey(i, "access_code")] = cfg.printer[i].access_code;
+  }
+  doc["fan_speed_printing"]        = cfg.fan_speed_printing;
+  doc["fan_speed_one_exhausting"]  = cfg.fan_speed_one_exhausting;
   doc["fan_speed_both_exhausting"] = cfg.fan_speed_both_exhausting;
   serializeJsonPretty(doc, f);
   f.close();
@@ -708,6 +733,14 @@ bool checkAuth() {
 void handleDashboard()  { if (!checkAuth()) return; server.send(200, "text/html", loadHtmlFile("/index.html")); }
 void handleConfigPage() { if (!checkAuth()) return; server.send(200, "text/html", loadHtmlFile("/config.html")); }
 
+const char* linkStatusText(int i) {
+  if (!printerConfigured(i))            return "not configured";
+  if (links[i].mqtt.connected())        return links[i].state.has_data ? "connected" : "connected, waiting for data";
+  if (links[i].lastRc == 4 || links[i].lastRc == 5) return "access code rejected";
+  if (!strlen(cfg.printer[i].ip))       return "searching for printer";
+  return "reconnecting";
+}
+
 void handleStatus() {
   if (!checkAuth()) return;
   JsonDocument doc;
@@ -715,41 +748,41 @@ void handleStatus() {
   doc["firmware_version"] = FIRMWARE_VERSION;
   doc["uptime_s"]         = millis() / 1000;
   doc["free_heap"]        = ESP.getFreeHeap();
+  doc["max_alloc_heap"]   = ESP.getMaxAllocHeap();
   doc["ip"]               = WiFi.localIP().toString();
   doc["fan_pct"]          = currentFanPct;
-  doc["cloud_connected"]  = mqttClient.connected();
+  JsonArray arr = doc["printer_links"].to<JsonArray>();
+  for (int i = 0; i < PRINTER_COUNT; i++) {
+    JsonObject o = arr.add<JsonObject>();
+    o["configured"] = printerConfigured(i);
+    o["connected"]  = links[i].mqtt.connected();
+    o["status"]     = linkStatusText(i);
+    o["ip"]         = cfg.printer[i].ip;
+  }
   String json; serializeJson(doc, json);
   server.send(200, "application/json", json);
 }
 
 void handlePrinterStatus() {
   if (!checkAuth()) return;
-  auto printerJson = [](JsonObject obj, const PrinterState& s, const char* name) {
-    // Normalise exhaust_fan_speed to 0-100%
-    // Gen1 X1C: big_fan2_speed uses 0-15 scale
-    // Gen2 H2C/X2D: airduct state is already 0-100
-    int exhaustPct;
-    if (s.gen == 1) {
-      exhaustPct = (s.exhaust_fan_speed == 0) ? 0 : (10 + (constrain(s.exhaust_fan_speed, 0, 15) * 90) / 15);
-    } else {
-      exhaustPct = constrain(s.exhaust_fan_speed, 0, 100);
-    }
-    obj["name"]          = strlen(s.name) ? s.name : name;
-    obj["connected"]     = s.connected;
-    obj["gcode_state"]   = s.gcode_state;
-    obj["progress"]      = s.progress;
+  JsonDocument doc;
+  doc["fan_pct"]         = currentFanPct;
+  doc["manual_override"] = (readPotentiometer() >= 0);
+  for (int i = 0; i < PRINTER_COUNT; i++) {
+    if (!strlen(cfg.printer[i].serial)) continue;
+    const PrinterState& s = links[i].state;
+    JsonObject obj = doc["printer" + String(i + 1)].to<JsonObject>();
+    obj["name"]        = strlen(cfg.printer[i].name) ? cfg.printer[i].name : (i == 0 ? "Printer 1" : "Printer 2");
+    obj["connected"]   = printerLive(i);
+    obj["gcode_state"] = s.gcode_state;
+    obj["progress"]    = s.progress;
     bool noTimeState = (strcmp(s.gcode_state, "FINISH") == 0 ||
                         strcmp(s.gcode_state, "IDLE") == 0 ||
                         strcmp(s.gcode_state, "offline") == 0);
     obj["remaining_min"] = noTimeState ? 0 : s.remaining_min;
     obj["exhausting"]    = s.exhausting;
-    obj["exhaust_pct"]   = exhaustPct;
-  };
-  JsonDocument doc;
-  doc["fan_pct"]        = currentFanPct;
-  doc["manual_override"] = (readPotentiometer() >= 0);
-  if (strlen(cfg.printer1_serial)) printerJson(doc["printer1"].to<JsonObject>(), p1state, cfg.printer1_name);
-  if (strlen(cfg.printer2_serial)) printerJson(doc["printer2"].to<JsonObject>(), p2state, cfg.printer2_name);
+    obj["exhaust_pct"]   = s.exhaust_pct;
+  }
   String json; serializeJson(doc, json);
   server.send(200, "application/json", json);
 }
@@ -757,17 +790,14 @@ void handlePrinterStatus() {
 void handleConfigGet() {
   if (!checkAuth()) return;
   JsonDocument doc;
-  doc["has_token"]               = strlen(cfg.bambu_token) > 0;
-  doc["bambu_user_id"]           = cfg.bambu_user_id;
-  doc["bambu_region"]            = cfg.bambu_region;
-  doc["printer1_name"]           = cfg.printer1_name;
-  doc["printer1_serial"]         = cfg.printer1_serial;
-  doc["printer1_gen"]            = cfg.printer1_gen;
-  doc["printer2_name"]           = cfg.printer2_name;
-  doc["printer2_serial"]         = cfg.printer2_serial;
-  doc["printer2_gen"]            = cfg.printer2_gen;
-  doc["fan_speed_printing"]      = cfg.fan_speed_printing;
-  doc["fan_speed_one_exhausting"] = cfg.fan_speed_one_exhausting;
+  for (int i = 0; i < PRINTER_COUNT; i++) {
+    doc[pkey(i, "name")]            = cfg.printer[i].name;
+    doc[pkey(i, "ip")]              = cfg.printer[i].ip;
+    doc[pkey(i, "serial")]          = cfg.printer[i].serial;
+    doc[pkey(i, "has_access_code")] = strlen(cfg.printer[i].access_code) > 0;   // never send the code itself back
+  }
+  doc["fan_speed_printing"]        = cfg.fan_speed_printing;
+  doc["fan_speed_one_exhausting"]  = cfg.fan_speed_one_exhausting;
   doc["fan_speed_both_exhausting"] = cfg.fan_speed_both_exhausting;
   String json; serializeJson(doc, json);
   server.send(200, "application/json", json);
@@ -777,17 +807,17 @@ void handleConfigPost() {
   if (!checkAuth()) return;
   if (server.method() != HTTP_POST) { server.send(405, "text/plain", "Method Not Allowed"); return; }
 
-  if (server.hasArg("bambu_user_id"))
-    strlcpy(cfg.bambu_user_id, server.arg("bambu_user_id").c_str(), sizeof(cfg.bambu_user_id));
-  if (server.hasArg("bambu_token") && server.arg("bambu_token").length() > 0)
-    strlcpy(cfg.bambu_token, server.arg("bambu_token").c_str(), sizeof(cfg.bambu_token));
-  if (server.hasArg("bambu_region"))    strlcpy(cfg.bambu_region,    server.arg("bambu_region").c_str(),    sizeof(cfg.bambu_region));
-  if (server.hasArg("printer1_name"))   strlcpy(cfg.printer1_name,   server.arg("printer1_name").c_str(),   sizeof(cfg.printer1_name));
-  if (server.hasArg("printer1_serial")) strlcpy(cfg.printer1_serial, server.arg("printer1_serial").c_str(), sizeof(cfg.printer1_serial));
-  if (server.hasArg("printer1_gen"))    cfg.printer1_gen = server.arg("printer1_gen").toInt();
-  if (server.hasArg("printer2_name"))   strlcpy(cfg.printer2_name,   server.arg("printer2_name").c_str(),   sizeof(cfg.printer2_name));
-  if (server.hasArg("printer2_serial")) strlcpy(cfg.printer2_serial, server.arg("printer2_serial").c_str(), sizeof(cfg.printer2_serial));
-  if (server.hasArg("printer2_gen"))    cfg.printer2_gen = server.arg("printer2_gen").toInt();
+  for (int i = 0; i < PRINTER_COUNT; i++) {
+    PrinterConfig& pc = cfg.printer[i];
+    String k;
+    if (server.hasArg(k = pkey(i, "name")))   strlcpy(pc.name,   server.arg(k).c_str(), sizeof(pc.name));
+    if (server.hasArg(k = pkey(i, "ip")))     strlcpy(pc.ip,     server.arg(k).c_str(), sizeof(pc.ip));
+    if (server.hasArg(k = pkey(i, "serial"))) strlcpy(pc.serial, server.arg(k).c_str(), sizeof(pc.serial));
+    // Blank = keep the saved code (the page never receives it).  "clear" via an empty serial instead.
+    if (server.hasArg(k = pkey(i, "access_code")) && server.arg(k).length() > 0)
+      strlcpy(pc.access_code, server.arg(k).c_str(), sizeof(pc.access_code));
+    if (!strlen(pc.serial)) pc.access_code[0] = '\0';   // printer removed — forget its code too
+  }
   if (server.hasArg("fan_speed_printing")) {
     int v = server.arg("fan_speed_printing").toInt();
     cfg.fan_speed_printing = (v == 0) ? 0 : constrain(v, 8, 100);
@@ -802,11 +832,28 @@ void handleConfigPost() {
   }
 
   if (saveConfig()) {
-    reinitMqtt();
-    server.send(200, "application/json", "{\"ok\":true}");
+    server.send(200, "application/json", "{\"ok\":true}");   // reply first — reconnecting takes a few seconds
+    reinitPrinters();
   } else {
     server.send(500, "application/json", "{\"ok\":false,\"error\":\"Save failed\"}");
   }
+}
+
+void handleDiscover() {
+  if (!checkAuth()) return;
+  FoundPrinter found[SSDP_MAX_RESULTS];
+  int n = discoverPrinters(found, SSDP_MAX_RESULTS);
+  JsonDocument doc;
+  JsonArray arr = doc.to<JsonArray>();
+  for (int k = 0; k < n; k++) {
+    JsonObject o = arr.add<JsonObject>();
+    o["ip"]     = found[k].ip;
+    o["serial"] = found[k].serial;
+    o["name"]   = found[k].name;
+    o["model"]  = found[k].model;
+  }
+  String json; serializeJson(doc, json);
+  server.send(200, "application/json", json);
 }
 
 void handleResetPost() {
@@ -847,21 +894,11 @@ void startNormalServer() {
   server.on("/printer-status", HTTP_GET,  handlePrinterStatus);
   server.on("/config",         HTTP_GET,  handleConfigGet);
   server.on("/config",         HTTP_POST, handleConfigPost);
+  server.on("/discover",       HTTP_GET,  handleDiscover);
   server.on("/reset",          HTTP_POST, handleResetPost);
   server.on("/reboot",         HTTP_POST, handleReboot);
   server.on("/runtime",        HTTP_GET,  handleRuntimeGet);
   server.on("/runtime/reset",  HTTP_POST, handleRuntimeReset);
-  server.on("/get_bambu_token.ps1", HTTP_GET, []() {
-    if (!checkAuth()) return;
-    File f = LittleFS.open("/get_bambu_token.ps1", "r");
-    if (!f) { server.send(404, "text/plain", "Not found"); return; }
-    String content = f.readString();
-    f.close();
-    // Replace the default hostname with the actual configured device name
-    content.replace("BambuAFE-ESP32", cfg.device_name);
-    server.sendHeader("Content-Disposition", "attachment; filename=\"get_bambu_token.ps1\"");
-    server.send(200, "application/octet-stream", content);
-  });
   server.onNotFound([]() {
     if (!checkAuth()) return;
     String path = server.uri();
@@ -871,7 +908,6 @@ void startNormalServer() {
       else if (path.endsWith(".js"))  ct = "application/javascript";
       else if (path.endsWith(".css")) ct = "text/css";
       else if (path.endsWith(".ico")) ct = "image/x-icon";
-      else if (path.endsWith(".ps1")) ct = "application/octet-stream";
       File f = LittleFS.open(path, "r");
       server.streamFile(f, ct);
       f.close();
@@ -929,7 +965,6 @@ void setup() {
   Serial.printf("[Boot] Firmware version: %s\n", FIRMWARE_VERSION);
 
   initFans();
-  initIndicatorLed();
   pinMode(POT_PIN, INPUT);
 
   if (!LittleFS.begin(true)) { Serial.println("[FS] Mount failed!"); return; }
@@ -951,7 +986,7 @@ void setup() {
     Serial.printf("[mDNS] Reachable at http://%s.local/\n", cfg.device_name);
   }
 
-  initMqtt();
+  initPrinters();
   loadRuntime();
 
   Serial.printf("[Boot] Running as: %s\n", cfg.device_name);
@@ -980,8 +1015,16 @@ void loopRuntime() {
 }
 
 void loop() {
+  static unsigned long lastFanCheck = 0;
+
   server.handleClient();
-  loopMqtt();
+  loopPrinters();
   loopRuntime();
-  updateIndicatorLed();
+
+  // Re-evaluate the fans regularly, not only when a printer message arrives —
+  // otherwise the manual-override knob does nothing when no printer is talking.
+  if (millis() - lastFanCheck >= 250) {
+    lastFanCheck = millis();
+    updateFanSpeed();
+  }
 }

@@ -100,6 +100,36 @@
     .field-row { display: flex; gap: 0.75rem; }
     .field-row .field { flex: 1; }
     .field-row .field-sm { width: 110px; flex-shrink: 0; }
+    @media (max-width: 480px) { .field-row { flex-direction: column; gap: 0; } }
+
+    .find-btn {
+      padding: 0.5rem 1rem; background: #fff; color: #2563eb;
+      border: 1.5px solid #2563eb; border-radius: 8px;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    }
+
+    .find-btn:hover { background: #eff6ff; }
+
+    .found-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+      flex-wrap: wrap; padding: 0.6rem 0.75rem; margin-top: 0.5rem;
+      border: 1px solid #e5e7eb; border-radius: 8px; font-size: 0.82rem;
+    }
+
+    .found-item.assigned { border-color: #93c5fd; background: #eff6ff; }
+
+    .slot-tag {
+      display: inline-block; margin-left: 0.4rem; padding: 0.1rem 0.5rem;
+      background: #2563eb; color: #fff; border-radius: 999px;
+      font-size: 0.68rem; font-weight: 600; vertical-align: middle;
+    }
+
+    .found-meta { color: #6b7280; font-size: 0.75rem; font-family: monospace; }
+
+    .use-btn {
+      padding: 0.3rem 0.7rem; background: #2563eb; color: #fff; border: none;
+      border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; margin-left: 0.25rem;
+    }
 
     .divider { border: none; border-top: 1px solid #e5e7eb; margin: 1.25rem 0; }
 
@@ -180,46 +210,37 @@
     <div class="section-title">Configuration</div>
     <div class="config-card">
 
-      <div class="printer-heading">Bambu Cloud account</div>
+      <div class="printer-heading">Printers</div>
       <div style="font-size:0.78rem;color:#6b7280;margin-bottom:0.75rem;padding:0.6rem;background:#f0f2f5;border-radius:8px;">
-        The Bambu Cloud requires a User ID and Access token.  There are three ways to get this information: Sorting through cookies in your web browser, running a PowerShell script that automates the process, or running a Python script that impersonates a web browser to retrieve the information.
-        <br><br>
-        The recommended way is to have <a href="https://github.com/powershell/powershell/releases" target="_blank" style="color:#2563eb;">PowerShell 7</a> installed and <a href="/get_bambu_token.ps1" download style="color:#2563eb;font-weight:500;">Download get_bambu_token.ps1</a> but view the README for full details.  The token expires every ~3 months and will need to be renewed.
+        The controller talks directly to your printers over your local network, so it must be on the same network as them.
+        Click <b>Find printers</b> to search the network, then pick which slot each printer goes in.
+        The only thing you have to type is each printer's <b>access code</b>, found on the printer's touchscreen in its network settings.
+        If a printer's IP address ever changes the controller will find it again by its serial number.
       </div>
-      <div class="field">
-        <label for="manual-user-id">User ID <span style="font-weight:400;color:#9ca3af;">(shown as u_XXXXXXX by the script)</span></label>
-        <input type="text" id="manual-user-id" placeholder="1234567890">
-      </div>
-      <div class="field">
-        <label for="manual-token">Access token <span style="font-weight:400;color:#9ca3af;">(long eyJ… string)</span></label>
-        <input type="password" id="manual-token" placeholder="Leave blank to keep existing token">
-      </div>
-      <div class="field">
-        <label for="bambu-region">Region</label>
-        <select id="bambu-region">
-          <option value="us">Global — us.mqtt.bambulab.com</option>
-          <option value="cn">China — cn.mqtt.bambulab.com</option>
-        </select>
-      </div>
-      <div id="token-status" style="font-size:0.8rem;min-height:1.2em;margin-bottom:0.5rem;"></div>
+      <button type="button" class="find-btn" onclick="findPrinters()">&#128269; Find printers</button>
+      <div id="found-list"></div>
 
       <div class="divider"></div>
 
       <div class="printer-heading">Printer 1</div>
       <div class="field">
         <label for="p1-name">Name</label>
-        <input type="text" id="p1-name" placeholder="e.g. X1C Living Room">
+        <input type="text" id="p1-name" placeholder="e.g. H2C Left">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="p1-serial">Serial number</label>
+          <input type="text" id="p1-serial" placeholder="31B8AP...">
+        </div>
+        <div class="field">
+          <label for="p1-ip">IP address <span style="font-weight:400;color:#9ca3af;">(auto)</span></label>
+          <input type="text" id="p1-ip" placeholder="Found automatically">
+        </div>
       </div>
       <div class="field">
-        <label for="p1-serial">Serial number</label>
-        <input type="text" id="p1-serial" placeholder="01S00C...">
-      </div>
-      <div class="field">
-        <label for="p1-gen">Printer generation</label>
-        <select id="p1-gen">
-          <option value="1">Gen 1 — X1C, P1S, P1P, A1, A1 Mini</option>
-          <option value="2">Gen 2 — H2C, H2S, H2D, P2S, X2D, A2L</option>
-        </select>
+        <label for="p1-code">Access code <span style="font-weight:400;color:#9ca3af;">(8 characters, from the printer's screen)</span></label>
+        <input type="password" id="p1-code" placeholder="Leave blank to keep the saved code" autocomplete="new-password">
+        <div id="p1-code-status" style="font-size:0.78rem;min-height:1.1em;margin-top:0.25rem;"></div>
       </div>
 
       <div class="divider"></div>
@@ -227,18 +248,22 @@
       <div class="printer-heading">Printer 2</div>
       <div class="field">
         <label for="p2-name">Name</label>
-        <input type="text" id="p2-name" placeholder="e.g. P1S Garage">
+        <input type="text" id="p2-name" placeholder="e.g. H2C Right">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="p2-serial">Serial number</label>
+          <input type="text" id="p2-serial" placeholder="31B8AP...">
+        </div>
+        <div class="field">
+          <label for="p2-ip">IP address <span style="font-weight:400;color:#9ca3af;">(auto)</span></label>
+          <input type="text" id="p2-ip" placeholder="Found automatically">
+        </div>
       </div>
       <div class="field">
-        <label for="p2-serial">Serial number</label>
-        <input type="text" id="p2-serial" placeholder="01S00C...">
-      </div>
-      <div class="field">
-        <label for="p2-gen">Printer generation</label>
-        <select id="p2-gen">
-          <option value="1">Gen 1 — X1C, P1S, P1P, A1, A1 Mini</option>
-          <option value="2">Gen 2 — H2C, H2S, H2D, P2S, X2D, A2L</option>
-        </select>
+        <label for="p2-code">Access code <span style="font-weight:400;color:#9ca3af;">(8 characters, from the printer's screen)</span></label>
+        <input type="password" id="p2-code" placeholder="Leave blank to keep the saved code" autocomplete="new-password">
+        <div id="p2-code-status" style="font-size:0.78rem;min-height:1.1em;margin-top:0.25rem;"></div>
       </div>
 
       <div class="divider"></div>
@@ -300,22 +325,93 @@
       fetch('/config')
         .then(r => r.json())
         .then(d => {
-          if (d.has_token) {
-            document.getElementById('token-status').textContent = '✓ Token is saved';
-            document.getElementById('token-status').style.color = '#16a34a';
+          for (const n of [1, 2]) {
+            document.getElementById(`p${n}-name`).value   = d[`printer${n}_name`]   || '';
+            document.getElementById(`p${n}-serial`).value = d[`printer${n}_serial`] || '';
+            document.getElementById(`p${n}-ip`).value     = d[`printer${n}_ip`]     || '';
+            const st = document.getElementById(`p${n}-code-status`);
+            if (d[`printer${n}_has_access_code`]) { st.textContent = '\u2713 Access code is saved'; st.style.color = '#16a34a'; }
+            else                                  { st.textContent = ''; }
           }
-          document.getElementById('manual-user-id').value        = d.bambu_user_id    || '';
-          document.getElementById('bambu-region').value           = d.bambu_region     || 'us';
-          document.getElementById('p1-name').value               = d.printer1_name    || '';
-          document.getElementById('p1-serial').value             = d.printer1_serial  || '';
-          document.getElementById('p1-gen').value                = d.printer1_gen     ?? 1;
-          document.getElementById('p2-name').value               = d.printer2_name    || '';
-          document.getElementById('p2-serial').value             = d.printer2_serial  || '';
-          document.getElementById('p2-gen').value                = d.printer2_gen     ?? 1;
           document.getElementById('fan-printing').value          = d.fan_speed_printing     ?? 10;
           document.getElementById('fan-exhausting').value        = d.fan_speed_one_exhausting   ?? 50;
           document.getElementById('fan-both-exhausting').value   = d.fan_speed_both_exhausting ?? 100;
         });
+    }
+
+    // Model codes reported by the printers.  Only O1C2 (H2C) has been
+    // confirmed on real hardware; anything unknown is shown as its raw code.
+    const MODEL_NAMES = { 'O1C2': 'H2C' };
+
+    function esc(t) { const e = document.createElement('span'); e.textContent = t ?? ''; return e.innerHTML; }
+
+    let foundPrinters = [];
+
+    function findPrinters() {
+      const box = document.getElementById('found-list');
+      box.innerHTML = '<div class="found-item">Searching the network (about 3 seconds)…</div>';
+      fetch('/discover')
+        .then(r => r.json())
+        .then(list => {
+          // Sort by name (then serial) so the list keeps the same order between searches
+          foundPrinters = list.sort((a, b) =>
+            (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }) ||
+            (a.serial || '').localeCompare(b.serial || ''));
+          renderFound();
+        })
+        .catch(() => { box.innerHTML = '<div class="found-item">Search failed — try again.</div>'; });
+    }
+
+    // Which slot (1 or 2) a serial number is currently entered in, or 0
+    function assignedSlot(serial) {
+      for (const n of [1, 2]) {
+        if (document.getElementById(`p${n}-serial`).value.trim().toUpperCase() === (serial || '').toUpperCase()) return n;
+      }
+      return 0;
+    }
+
+    function renderFound() {
+      const box = document.getElementById('found-list');
+      if (!foundPrinters.length) {
+        box.innerHTML = '<div class="found-item">No printers answered.  Make sure they are powered on and on the same network as this controller, or enter the serial number and IP address by hand.</div>';
+        return;
+      }
+      box.innerHTML = foundPrinters.map((p, i) => {
+        const slot = assignedSlot(p.serial);
+        return `
+          <div class="found-item${slot ? ' assigned' : ''}">
+            <div>
+              <div style="font-weight:600;color:#111827;">${esc(p.name) || 'Bambu printer'}
+                ${slot ? `<span class="slot-tag">Printer ${slot}</span>` : ''}</div>
+              <div class="found-meta">${esc(MODEL_NAMES[p.model] || 'Model ' + p.model)} · ${esc(p.ip)} · ${esc(p.serial)}</div>
+            </div>
+            <div>
+              ${slot === 1 ? '' : `<button class="use-btn" onclick="usePrinter(${i}, 1)">Use as Printer 1</button>`}
+              ${slot === 2 ? '' : `<button class="use-btn" onclick="usePrinter(${i}, 2)">Use as Printer 2</button>`}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function usePrinter(i, n) {
+      const p = foundPrinters[i];
+      const other = n === 1 ? 2 : 1;
+      if (assignedSlot(p.serial) === other) {
+        // Moving this printer to the other slot — empty the slot it came from
+        for (const f of ['name', 'serial', 'ip', 'code']) document.getElementById(`p${other}-${f}`).value = '';
+        document.getElementById(`p${other}-code-status`).textContent = '';
+      }
+      const serialEl = document.getElementById(`p${n}-serial`);
+      if (serialEl.value.trim().toUpperCase() !== p.serial.toUpperCase()) {
+        // A different printer is going into this slot — the saved code belongs to the old one
+        document.getElementById(`p${n}-code-status`).textContent = 'Enter the access code for this printer';
+        document.getElementById(`p${n}-code-status`).style.color = '#b45309';
+      }
+      document.getElementById(`p${n}-name`).value = p.name || '';
+      serialEl.value = p.serial;
+      document.getElementById(`p${n}-ip`).value   = p.ip;
+      renderFound();
+      document.getElementById(`p${n}-code`).focus();
     }
 
     function validateFanSpeed(id) {
@@ -332,24 +428,22 @@
       status.textContent = 'Saving…';
       status.className = 'save-status';
       const body = new URLSearchParams({
-        bambu_user_id:             document.getElementById('manual-user-id').value.trim().replace(/^u_/, ''),
-        bambu_token:               document.getElementById('manual-token').value.trim(),
-        bambu_region:              document.getElementById('bambu-region').value,
-        printer1_name:             document.getElementById('p1-name').value,
-        printer1_serial:           document.getElementById('p1-serial').value,
-        printer1_gen:              document.getElementById('p1-gen').value,
-        printer2_name:             document.getElementById('p2-name').value,
-        printer2_serial:           document.getElementById('p2-serial').value,
-        printer2_gen:              document.getElementById('p2-gen').value,
         fan_speed_printing:            validateFanSpeed('fan-printing'),
         fan_speed_one_exhausting:      validateFanSpeed('fan-exhausting'),
         fan_speed_both_exhausting:     validateFanSpeed('fan-both-exhausting'),
       });
+      for (const n of [1, 2]) {
+        body.append(`printer${n}_name`,        document.getElementById(`p${n}-name`).value.trim());
+        body.append(`printer${n}_serial`,      document.getElementById(`p${n}-serial`).value.trim().toUpperCase());
+        body.append(`printer${n}_ip`,          document.getElementById(`p${n}-ip`).value.trim());
+        body.append(`printer${n}_access_code`, document.getElementById(`p${n}-code`).value.trim());
+      }
       fetch('/config', { method: 'POST', body })
         .then(r => r.json())
         .then(d => {
-          status.textContent = d.ok ? '✓ Saved successfully' : '✗ Save failed: ' + (d.error || 'unknown error');
+          status.textContent = d.ok ? '✓ Saved — connecting to your printers…' : '✗ Save failed: ' + (d.error || 'unknown error');
           status.className   = 'save-status ' + (d.ok ? 'ok' : 'err');
+          if (d.ok) { for (const n of [1, 2]) document.getElementById(`p${n}-code`).value = ''; setTimeout(fetchConfig, 1500); }
         })
         .catch(() => { status.textContent = '✗ Request failed'; status.className = 'save-status err'; });
     }
@@ -381,6 +475,8 @@
           document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#6b7280;font-size:0.9rem;">Resetting… reconnect to BambuAFE-Setup to reconfigure.</div>';
         });
     }
+
+    for (const n of [1, 2]) document.getElementById(`p${n}-serial`).addEventListener('input', () => foundPrinters.length && renderFound());
 
     fetchConfig();
   </script>
