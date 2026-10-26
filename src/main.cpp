@@ -39,7 +39,7 @@
 #define AP_SSID            "BambuAFE-Setup"
 #define AP_PASSWORD        ""
 #define CONFIG_FILE        "/config.json"
-#define FIRMWARE_VERSION   "1.0.1"
+#define FIRMWARE_VERSION   "1.1.0"
 
 #define FAN1_PIN           16
 #define FAN2_PIN           17
@@ -98,7 +98,11 @@ struct Config {
   int  fan_speed_printing        = 10;
   int  fan_speed_one_exhausting  = 50;
   int  fan_speed_both_exhausting = 100;
+  int  fan_runon_s               = 0;      // keep the fans going this long after they would stop (0-180)
+  bool manual_knob               = false;  // GPIO 35 floats with no knob attached, so only read it when enabled
 };
+
+#define FAN_RUNON_MAX_S    180
 
 Config cfg;
 
@@ -368,10 +372,11 @@ bool saveConfig();  // forward declaration — used by the self-heal code before
 
 // ══════════════════════════════════════════════════════════════════════════
 //  Potentiometer — manual fan override on GPIO 35
-//  Returns 0-100 if pot is connected, -1 if not detected
+//  Returns 0-100 if pot is connected, -1 if not detected or not enabled
 // ══════════════════════════════════════════════════════════════════════════
 
 int readPotentiometer() {
+  if (!cfg.manual_knob) return -1;   // nothing wired to GPIO 35 — its random readings would start the fans
   int raw = analogRead(POT_PIN);
   if (raw < 372) return -1;  // below ~0.3v threshold — treat as not connected
   return map(raw, 372, 4095, 0, 100);
@@ -436,6 +441,19 @@ void updateFanSpeed() {
     targetPct = (int)(cfg.fan_speed_printing + (p / 100.0f) * (cfg.fan_speed_one_exhausting - cfg.fan_speed_printing));
   } else if (printing[0] || printing[1]) {
     targetPct = cfg.fan_speed_printing;
+  }
+
+  // Run-on: when the fans would stop, hold their last speed for fan_runon_s
+  // seconds to clear what is left in the chamber and hose.
+  static unsigned long lastNeededAt = 0;
+  static int           lastAutoPct  = 0;
+  if (targetPct > 0) {
+    lastNeededAt = millis();
+    lastAutoPct  = targetPct;
+  } else if (lastAutoPct > 0 && millis() - lastNeededAt < cfg.fan_runon_s * 1000UL) {
+    targetPct = lastAutoPct;
+  } else {
+    lastAutoPct = 0;
   }
 
   setFanSpeed(constrain(targetPct, 0, 100));
@@ -817,6 +835,8 @@ bool loadConfig() {
   cfg.fan_speed_printing        = doc["fan_speed_printing"]        | 10;
   cfg.fan_speed_one_exhausting  = doc["fan_speed_one_exhausting"]  | 50;
   cfg.fan_speed_both_exhausting = doc["fan_speed_both_exhausting"] | 100;
+  cfg.fan_runon_s               = constrain((int)(doc["fan_runon_s"] | 0), 0, FAN_RUNON_MAX_S);
+  cfg.manual_knob               = doc["manual_knob"] | false;
   return true;
 }
 
@@ -837,6 +857,8 @@ bool saveConfig() {
   doc["fan_speed_printing"]        = cfg.fan_speed_printing;
   doc["fan_speed_one_exhausting"]  = cfg.fan_speed_one_exhausting;
   doc["fan_speed_both_exhausting"] = cfg.fan_speed_both_exhausting;
+  doc["fan_runon_s"]               = cfg.fan_runon_s;
+  doc["manual_knob"]               = cfg.manual_knob;
   serializeJsonPretty(doc, f);
   f.close();
   return true;
@@ -930,15 +952,27 @@ void startConfigPortal() {
   server.on("/",     HTTP_GET,  handlePortalRoot);
   server.on("/save", HTTP_POST, handlePortalSave);
   server.on("/scan", HTTP_GET, []() {
+    // Built with ArduinoJson so names with quotes or backslashes stay valid JSON.
+    // Mesh systems list the same name once per access point — keep the strongest.
     int n = WiFi.scanNetworks();
-    String json = "[";
+    JsonDocument doc;
+    JsonArray arr = doc.to<JsonArray>();
     for (int i = 0; i < n; i++) {
-      if (i) json += ",";
-      json += "{\"ssid\":\"" + WiFi.SSID(i) + "\","
-              "\"rssi\":" + WiFi.RSSI(i) + ","
-              "\"secured\":" + (WiFi.encryptionType(i) != WIFI_AUTH_OPEN ? "true" : "false") + "}";
+      String ssid = WiFi.SSID(i);
+      if (!ssid.length()) continue;                   // hidden network
+      JsonObject seen;
+      for (JsonObject o : arr) if (ssid == o["ssid"].as<const char*>()) { seen = o; break; }
+      if (!seen.isNull()) {
+        if (WiFi.RSSI(i) > seen["rssi"].as<int>()) seen["rssi"] = WiFi.RSSI(i);
+        continue;
+      }
+      JsonObject o = arr.add<JsonObject>();
+      o["ssid"]    = ssid;
+      o["rssi"]    = WiFi.RSSI(i);
+      o["secured"] = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
     }
-    json += "]";
+    WiFi.scanDelete();
+    String json; serializeJson(doc, json);
     server.send(200, "application/json", json);
   });
   server.onNotFound([]() { server.sendHeader("Location", "/"); server.send(302); });
@@ -956,6 +990,17 @@ bool checkAuth() {
     server.requestAuthentication(BASIC_AUTH, "BambuAFE Dashboard", "Authorisation required");
     return false;
   }
+  return true;
+}
+
+// Every POST from our own pages carries this header.  The browser re-sends the
+// saved login to the controller even from another website's form, but another
+// website cannot add a custom header, so this blocks cross-site requests (CSRF).
+#define CSRF_HEADER "X-BambuAFE"
+
+bool checkPost() {
+  if (server.method() != HTTP_POST) { server.send(405, "text/plain", "Method Not Allowed"); return false; }
+  if (server.header(CSRF_HEADER) != "1") { server.send(403, "text/plain", "Forbidden"); return false; }
   return true;
 }
 
@@ -1028,20 +1073,25 @@ void handleConfigGet() {
   doc["fan_speed_printing"]        = cfg.fan_speed_printing;
   doc["fan_speed_one_exhausting"]  = cfg.fan_speed_one_exhausting;
   doc["fan_speed_both_exhausting"] = cfg.fan_speed_both_exhausting;
+  doc["fan_runon_s"]               = cfg.fan_runon_s;
+  doc["manual_knob"]               = cfg.manual_knob;
   String json; serializeJson(doc, json);
   server.send(200, "application/json", json);
 }
 
 void handleConfigPost() {
-  if (!checkAuth()) return;
-  if (server.method() != HTTP_POST) { server.send(405, "text/plain", "Method Not Allowed"); return; }
+  if (!checkAuth() || !checkPost()) return;
 
   for (int i = 0; i < PRINTER_COUNT; i++) {
     PrinterConfig& pc = cfg.printer[i];
     String k;
     if (server.hasArg(k = pkey(i, "name")))   strlcpy(pc.name,   server.arg(k).c_str(), sizeof(pc.name));
     if (server.hasArg(k = pkey(i, "ip")))     strlcpy(pc.ip,     server.arg(k).c_str(), sizeof(pc.ip));
-    if (server.hasArg(k = pkey(i, "serial"))) strlcpy(pc.serial, server.arg(k).c_str(), sizeof(pc.serial));
+    if (server.hasArg(k = pkey(i, "serial"))) {
+      // A different printer in this slot — the saved code belonged to the old one
+      if (strcasecmp(pc.serial, server.arg(k).c_str()) != 0) pc.access_code[0] = '\0';
+      strlcpy(pc.serial, server.arg(k).c_str(), sizeof(pc.serial));
+    }
     // Blank = keep the saved code (the page never receives it).  "clear" via an empty serial instead.
     if (server.hasArg(k = pkey(i, "access_code")) && server.arg(k).length() > 0)
       strlcpy(pc.access_code, server.arg(k).c_str(), sizeof(pc.access_code));
@@ -1059,6 +1109,10 @@ void handleConfigPost() {
     int v = server.arg("fan_speed_both_exhausting").toInt();
     cfg.fan_speed_both_exhausting = (v == 0) ? 0 : constrain(v, 8, 100);
   }
+  if (server.hasArg("fan_runon_s"))
+    cfg.fan_runon_s = constrain((int)server.arg("fan_runon_s").toInt(), 0, FAN_RUNON_MAX_S);
+  if (server.hasArg("manual_knob"))
+    cfg.manual_knob = server.arg("manual_knob") == "1";
 
   if (saveConfig()) {
     server.send(200, "application/json", "{\"ok\":true}");   // reply first — reconnecting takes a few seconds
@@ -1086,15 +1140,13 @@ void handleDiscover() {
 }
 
 void handleResetPost() {
-  if (!checkAuth()) return;
-  if (server.method() != HTTP_POST) { server.send(405, "text/plain", "Method Not Allowed"); return; }
+  if (!checkAuth() || !checkPost()) return;
   server.send(200, "application/json", "{\"ok\":true}");
   delay(500); deleteConfig(); ESP.restart();
 }
 
 void handleReboot() {
-  if (!checkAuth()) return;
-  if (server.method() != HTTP_POST) { server.send(405, "text/plain", "Method Not Allowed"); return; }
+  if (!checkAuth() || !checkPost()) return;
   server.send(200, "application/json", "{\"ok\":true}");
   delay(500); ESP.restart();
 }
@@ -1110,8 +1162,7 @@ void handleRuntimeGet() {
 }
 
 void handleRuntimeReset() {
-  if (!checkAuth()) return;
-  if (server.method() != HTTP_POST) { server.send(405, "text/plain", "Method Not Allowed"); return; }
+  if (!checkAuth() || !checkPost()) return;
   resetRuntime();
   server.send(200, "application/json", "{\"ok\":true}");
 }
@@ -1130,13 +1181,15 @@ void startNormalServer() {
   server.on("/runtime/reset",  HTTP_POST, handleRuntimeReset);
   server.onNotFound([]() {
     if (!checkAuth()) return;
+    // Only web page files.  config.json holds the Wi-Fi password and access
+    // codes in plain text, so .json and anything else unknown is never served.
     String path = server.uri();
-    if (LittleFS.exists(path)) {
-      String ct = "text/plain";
-      if (path.endsWith(".html")) ct = "text/html";
-      else if (path.endsWith(".js"))  ct = "application/javascript";
-      else if (path.endsWith(".css")) ct = "text/css";
-      else if (path.endsWith(".ico")) ct = "image/x-icon";
+    const char* ct = nullptr;
+    if      (path.endsWith(".html")) ct = "text/html";
+    else if (path.endsWith(".js"))   ct = "application/javascript";
+    else if (path.endsWith(".css"))  ct = "text/css";
+    else if (path.endsWith(".ico"))  ct = "image/x-icon";
+    if (ct && LittleFS.exists(path)) {
       File f = LittleFS.open(path, "r");
       server.streamFile(f, ct);
       f.close();
@@ -1144,6 +1197,8 @@ void startNormalServer() {
       server.send(404, "text/plain", "Not found: " + path);
     }
   });
+  const char* headers[] = { CSRF_HEADER };
+  server.collectHeaders(headers, 1);
   server.begin();
   Serial.println("[Server] HTTP server started");
 }
