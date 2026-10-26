@@ -17,7 +17,7 @@
  *     and re-discovers a printer by serial number if its IP address changes
  *   - Parses print state and exhaust fan status to drive a shared PWM fan
  *   - Scales fan speed based on printer exhaust percentage
- *   - Tracks and saves fan runtime to /runtime.json every 10 minutes
+ *   - Tracks and saves fan runtime to NVS every 10 minutes (survives reflashing)
  *   - Serves a password-protected status dashboard at / (index.html)
  *
  * To reset config: hold BOOT button (GPIO 0) for 3 seconds on startup
@@ -32,6 +32,7 @@
 #include <ArduinoJson.h>
 #include <functional>
 #include <ESPmDNS.h>
+#include <Preferences.h>
 
 // ─── Pin & timing constants ────────────────────────────────────────────────
 #define RESET_BUTTON_PIN   0
@@ -39,7 +40,7 @@
 #define AP_SSID            "BambuAFE-Setup"
 #define AP_PASSWORD        ""
 #define CONFIG_FILE        "/config.json"
-#define FIRMWARE_VERSION   "1.1.0"
+#define FIRMWARE_VERSION   "1.1.1"
 
 #define FAN1_PIN           16
 #define FAN2_PIN           17
@@ -365,8 +366,12 @@ unsigned long lastRuntimeSave   = 0;   // millis of last save to LittleFS
 unsigned long lastRuntimeTick   = 0;   // millis of last accumulator tick
 unsigned long runtimeSecondAcc  = 0;   // accumulated milliseconds toward the next minute
 
-#define RUNTIME_FILE       "/runtime.json"
+#define RUNTIME_FILE       "/runtime.json"  // pre-1.1.1 location, only read to migrate
+#define RUNTIME_NVS_NS     "bambuafe"
+#define RUNTIME_KEY        "runtime_min"
 #define RUNTIME_SAVE_MS    600000      // save every 10 minutes
+
+Preferences runtimeStore;
 
 bool saveConfig();  // forward declaration — used by the self-heal code before its definition
 
@@ -872,28 +877,32 @@ void deleteConfig() {
 //  Runtime tracking helpers
 // ══════════════════════════════════════════════════════════════════════════
 
-void saveRuntime();  // forward declaration
-
-void loadRuntime() {
-  if (!LittleFS.exists(RUNTIME_FILE)) {
-    saveRuntime();  // create file with default value on first boot
-    return;
-  }
-  File f = LittleFS.open(RUNTIME_FILE, "r");
-  if (!f) return;
-  JsonDocument doc;
-  if (!deserializeJson(doc, f)) runtimeMinutes = doc["runtime_minutes"] | 0;
-  f.close();
-}
+// The runtime lives in NVS (the ESP32's built-in settings storage), not in
+// LittleFS.  "Upload Filesystem Image" replaces the whole LittleFS partition,
+// which used to wipe the runtime on every web page update; NVS is a separate
+// partition that neither upload touches.  Firmware before 1.1.1 kept it in
+// /runtime.json, which is copied over once and then removed.
 
 void saveRuntime() {
-  File f = LittleFS.open(RUNTIME_FILE, "w", true);  // true = create if not exists
-  if (!f) { Serial.println("[Runtime] Failed to open runtime.json for writing"); return; }
-  JsonDocument doc;
-  doc["runtime_minutes"] = runtimeMinutes;
-  serializeJson(doc, f);
-  f.close();
+  if (runtimeMinutes != runtimeStore.getULong(RUNTIME_KEY, ULONG_MAX) &&
+      !runtimeStore.putULong(RUNTIME_KEY, runtimeMinutes))
+    Serial.println("[Runtime] Failed to save runtime");
   lastRuntimeSave = millis();
+}
+
+void loadRuntime() {
+  if (!runtimeStore.begin(RUNTIME_NVS_NS, false)) { Serial.println("[Runtime] NVS unavailable"); return; }
+  if (runtimeStore.isKey(RUNTIME_KEY)) {
+    runtimeMinutes = runtimeStore.getULong(RUNTIME_KEY, 0);
+  } else if (LittleFS.exists(RUNTIME_FILE)) {
+    File f = LittleFS.open(RUNTIME_FILE, "r");
+    JsonDocument doc;
+    if (f && !deserializeJson(doc, f)) runtimeMinutes = doc["runtime_minutes"] | 0;
+    if (f) f.close();
+    Serial.printf("[Runtime] Moved %lu minutes from runtime.json to NVS\n", runtimeMinutes);
+  }
+  saveRuntime();
+  if (runtimeStore.isKey(RUNTIME_KEY) && LittleFS.exists(RUNTIME_FILE)) LittleFS.remove(RUNTIME_FILE);
 }
 
 void resetRuntime() {
