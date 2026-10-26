@@ -258,12 +258,26 @@
         .then(r => r.json())
         .then(nets => {
           if (!nets.length) { box.innerHTML = '<div class="net-item">No networks found</div>'; return; }
-          box.innerHTML = nets.map(n =>
-            `<div class="net-item" onclick="selectNet('${n.ssid}')">
-              <span>${n.ssid} ${n.secured ? '<span class="net-lock">🔒</span>' : ''}</span>
-              <span class="net-signal">${n.rssi} dBm</span>
-            </div>`
-          ).join('');
+          // Built with textContent so names with quotes, apostrophes or < > show as typed
+          box.innerHTML = '';
+          nets.sort((a, b) => b.rssi - a.rssi).forEach(n => {
+            const item = document.createElement('div');
+            item.className = 'net-item';
+            const name = document.createElement('span');
+            name.textContent = n.ssid + ' ';
+            if (n.secured) {
+              const lock = document.createElement('span');
+              lock.className = 'net-lock';
+              lock.textContent = '🔒';
+              name.appendChild(lock);
+            }
+            const signal = document.createElement('span');
+            signal.className = 'net-signal';
+            signal.textContent = n.rssi + ' dBm';
+            item.append(name, signal);
+            item.addEventListener('click', () => selectNet(n.ssid));
+            box.appendChild(item);
+          });
         })
         .catch(() => { box.innerHTML = '<div class="net-item">Scan failed</div>'; });
     }
