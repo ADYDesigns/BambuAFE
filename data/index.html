@@ -401,7 +401,7 @@
     function hideRuntimeResetConfirm() { document.getElementById('runtime-confirm').style.display = 'none'; }
 
     function doRuntimeReset() {
-      fetch('/runtime/reset', { method: 'POST' })
+      fetch('/runtime/reset', { method: 'POST', headers: { 'X-BambuAFE': '1' } })
         .then(() => {
           hideRuntimeResetConfirm();
           fetchRuntime();
