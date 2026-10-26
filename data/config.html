@@ -284,6 +284,22 @@
         <label for="fan-both-exhausting">Maximum fan speed when both printers are exhausting (%)</label>
         <input type="number" id="fan-both-exhausting" placeholder="100" min="0" max="100">
       </div>
+      <div class="field">
+        <label for="fan-runon">Keep fans running after printing stops (seconds, 0&ndash;180)</label>
+        <input type="number" id="fan-runon" placeholder="0" min="0" max="180">
+        <div style="font-size:0.75rem;color:#6b7280;margin-top:0.25rem;">The fans hold their last speed this long to clear the chamber and hose.  0 turns this off.</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="printer-heading">Manual knob</div>
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;">
+          <input type="checkbox" id="manual-knob" style="width:auto;">
+          A manual override knob (potentiometer) is wired to GPIO 35
+        </label>
+        <div style="font-size:0.75rem;color:#6b7280;margin-top:0.25rem;">Leave this off if no knob is installed &mdash; an unconnected GPIO 35 gives random readings that could turn the fans on.</div>
+      </div>
 
       <div class="divider"></div>
 
@@ -336,8 +352,14 @@
           document.getElementById('fan-printing').value          = d.fan_speed_printing     ?? 10;
           document.getElementById('fan-exhausting').value        = d.fan_speed_one_exhausting   ?? 50;
           document.getElementById('fan-both-exhausting').value   = d.fan_speed_both_exhausting ?? 100;
+          document.getElementById('fan-runon').value             = d.fan_runon_s ?? 0;
+          document.getElementById('manual-knob').checked         = !!d.manual_knob;
         });
     }
+
+    // Sent with every POST — the controller rejects POSTs without it, which
+    // stops other websites from submitting forms to it with your saved login.
+    const POST_HEADERS = { 'X-BambuAFE': '1' };
 
     // Model codes reported by the printers.  Only O1C2 (H2C) has been
     // confirmed on real hardware; anything unknown is shown as its raw code.
@@ -423,6 +445,13 @@
       return val;
     }
 
+    function validateRunOn() {
+      const el = document.getElementById('fan-runon');
+      const val = Math.min(180, Math.max(0, parseInt(el.value) || 0));
+      el.value = val;
+      return val;
+    }
+
     function saveConfig() {
       const status = document.getElementById('save-status');
       status.textContent = 'Saving…';
@@ -431,6 +460,8 @@
         fan_speed_printing:            validateFanSpeed('fan-printing'),
         fan_speed_one_exhausting:      validateFanSpeed('fan-exhausting'),
         fan_speed_both_exhausting:     validateFanSpeed('fan-both-exhausting'),
+        fan_runon_s:                   validateRunOn(),
+        manual_knob:                   document.getElementById('manual-knob').checked ? '1' : '0',
       });
       for (const n of [1, 2]) {
         body.append(`printer${n}_name`,        document.getElementById(`p${n}-name`).value.trim());
@@ -438,7 +469,7 @@
         body.append(`printer${n}_ip`,          document.getElementById(`p${n}-ip`).value.trim());
         body.append(`printer${n}_access_code`, document.getElementById(`p${n}-code`).value.trim());
       }
-      fetch('/config', { method: 'POST', body })
+      fetch('/config', { method: 'POST', headers: POST_HEADERS, body })
         .then(r => r.json())
         .then(d => {
           status.textContent = d.ok ? '✓ Saved — connecting to your printers…' : '✗ Save failed: ' + (d.error || 'unknown error');
@@ -481,7 +512,7 @@
       const st = document.getElementById('reboot-status');
       st.textContent = 'Rebooting…';
       st.style.color = '#2563eb';
-      fetch('/reboot', { method: 'POST' })
+      fetch('/reboot', { method: 'POST', headers: POST_HEADERS })
         .then(() => {
           st.textContent = 'Rebooted — reconnecting in 10 seconds…';
           setTimeout(() => location.reload(), 10000);
@@ -496,7 +527,7 @@
     function hideResetConfirm() { document.getElementById('reset-confirm').style.display = 'none'; }
 
     function doReset() {
-      fetch('/reset', { method: 'POST' })
+      fetch('/reset', { method: 'POST', headers: POST_HEADERS })
         .then(() => {
           document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#6b7280;font-size:0.9rem;">Resetting… reconnect to BambuAFE-Setup to reconfigure.</div>';
         })
