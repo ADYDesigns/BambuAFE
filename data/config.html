@@ -438,7 +438,8 @@
 
     function validateFanSpeed(id) {
       const el = document.getElementById(id);
-      let val = parseInt(el.value) || 0;
+      // A blank box means the default shown as its placeholder, not 0 (off)
+      let val = el.value.trim() === '' ? parseInt(el.placeholder) : (parseInt(el.value) || 0);
       if (val !== 0 && val < 8) val = 8;
       if (val > 100) val = 100;
       el.value = val;
