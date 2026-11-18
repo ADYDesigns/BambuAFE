@@ -1,14 +1,14 @@
 /**
  * ESP32 BambuAFE — Local (LAN) Edition
  * -------------------------------------
- * On first boot (no config.json found):
+ * On first boot (no saved settings):
  *   - Starts a Wi-Fi Access Point named "BambuAFE-Setup"
  *   - Hosts a web config portal at 192.168.4.1  (setup.html)
- *   - Saves submitted settings to /config.json in LittleFS
+ *   - Saves submitted settings to NVS (survives both PlatformIO uploads)
  *   - Reboots into normal operation
  *
  * On subsequent boots:
- *   - Reads config.json
+ *   - Reads the settings from NVS (moving an old /config.json there first)
  *   - Connects to Wi-Fi
  *   - Connects DIRECTLY to each printer's own MQTT broker on the local network
  *     (TLS, port 8883, user "bblp", password = the printer's LAN access code).
@@ -39,8 +39,10 @@
 #define RESET_HOLD_MS      3000
 #define AP_SSID            "BambuAFE-Setup"
 #define AP_PASSWORD        ""
-#define CONFIG_FILE        "/config.json"
-#define FIRMWARE_VERSION   "1.1.1"
+#define CONFIG_FILE        "/config.json"   // pre-1.2.0 location, only read to migrate
+#define SETTINGS_NVS_NS    "bambuafe_cfg"
+#define SETTINGS_KEY       "config"
+#define FIRMWARE_VERSION   "1.2.0"
 
 #define FAN1_PIN           16
 #define FAN2_PIN           17
@@ -677,8 +679,12 @@ bool connectPrinter(int i) {
   PrinterConfig& pc = cfg.printer[i];
 
   Serial.printf("[MQTT] Printer %d: connecting to %s...\n", i + 1, pc.ip);
+  // Must be unique per connection — the broker drops an older connection with
+  // the same ID.  The end of this board's MAC keeps two controllers that share
+  // a device name from knocking each other off the same printer.
   char clientId[80];
-  snprintf(clientId, sizeof(clientId), "%s-p%d", cfg.device_name, i + 1);   // must be unique per connection
+  snprintf(clientId, sizeof(clientId), "%s-%06X-p%d", cfg.device_name,
+           (unsigned)(ESP.getEfuseMac() >> 24) & 0xFFFFFF, i + 1);
 
   if (!L.mqtt.connect(pc.ip, BAMBU_LOCAL_PORT, clientId, BAMBU_LOCAL_USER, pc.access_code)) {
     L.lastRc = L.mqtt.lastRc;
@@ -813,18 +819,53 @@ void loopPrinters() {
 //  Filesystem helpers
 // ══════════════════════════════════════════════════════════════════════════
 
-bool configExists() { return LittleFS.exists(CONFIG_FILE); }
+// The settings live in NVS (the ESP32's built-in settings storage) as one
+// JSON string.  "Upload Filesystem Image" replaces the whole LittleFS
+// partition, which used to erase the settings whenever the web pages were
+// updated; NVS is a separate partition that neither upload touches.
+// Firmware before 1.2.0 kept them in /config.json, which is moved over once.
+
+Preferences settingsStore;
+bool        settingsOpen = false;
+
+bool openSettings() {
+  if (!settingsOpen) settingsOpen = settingsStore.begin(SETTINGS_NVS_NS, false);
+  return settingsOpen;
+}
+
+void migrateConfigFile() {
+  if (!LittleFS.exists(CONFIG_FILE)) return;
+  if (!openSettings()) { Serial.println("[Config] NVS unavailable — keeping config.json"); return; }
+  if (!settingsStore.isKey(SETTINGS_KEY)) {
+    File f = LittleFS.open(CONFIG_FILE, "r");
+    JsonDocument doc;
+    bool ok = f && !deserializeJson(doc, f);
+    if (f) f.close();
+    if (ok) {
+      String json; serializeJson(doc, json);
+      if (settingsStore.putString(SETTINGS_KEY, json.c_str()) != json.length()) {
+        Serial.println("[Config] Could not move config.json to NVS — will retry next boot");
+        return;                                   // keep the file so nothing is lost
+      }
+      Serial.println("[Config] Moved settings from config.json to NVS");
+    } else {
+      Serial.println("[Config] config.json is unreadable — ignoring it");
+    }
+  }
+  LittleFS.remove(CONFIG_FILE);
+}
+
+bool configExists() { return openSettings() && settingsStore.isKey(SETTINGS_KEY); }
 
 // Keys are printer1_name, printer1_ip, ... — name and serial keep the same
 // keys as the cloud firmware, so they carry over after an upgrade.
 String pkey(int i, const char* field) { return "printer" + String(i + 1) + "_" + field; }
 
 bool loadConfig() {
-  File f = LittleFS.open(CONFIG_FILE, "r");
-  if (!f) return false;
+  if (!openSettings()) return false;
+  String json = settingsStore.getString(SETTINGS_KEY, "");
   JsonDocument doc;
-  if (deserializeJson(doc, f)) { f.close(); return false; }
-  f.close();
+  if (!json.length() || deserializeJson(doc, json)) return false;
 
   strlcpy(cfg.wifi_ssid,       doc["wifi_ssid"]       | "",               sizeof(cfg.wifi_ssid));
   strlcpy(cfg.wifi_pass,       doc["wifi_pass"]       | "",               sizeof(cfg.wifi_pass));
@@ -846,8 +887,7 @@ bool loadConfig() {
 }
 
 bool saveConfig() {
-  File f = LittleFS.open(CONFIG_FILE, "w");
-  if (!f) return false;
+  if (!openSettings()) return false;
   JsonDocument doc;
   doc["wifi_ssid"]      = cfg.wifi_ssid;
   doc["wifi_pass"]      = cfg.wifi_pass;
@@ -864,13 +904,19 @@ bool saveConfig() {
   doc["fan_speed_both_exhausting"] = cfg.fan_speed_both_exhausting;
   doc["fan_runon_s"]               = cfg.fan_runon_s;
   doc["manual_knob"]               = cfg.manual_knob;
-  serializeJsonPretty(doc, f);
-  f.close();
+  String json; serializeJson(doc, json);
+  if (settingsStore.putString(SETTINGS_KEY, json.c_str()) != json.length()) {
+    Serial.println("[Config] Failed to save settings");
+    return false;
+  }
   return true;
 }
 
+// Erases the settings only — the fan runtime is kept in its own NVS namespace
 void deleteConfig() {
-  if (LittleFS.exists(CONFIG_FILE)) { LittleFS.remove(CONFIG_FILE); Serial.println("[Config] Deleted"); }
+  if (openSettings() && settingsStore.isKey(SETTINGS_KEY)) settingsStore.remove(SETTINGS_KEY);
+  if (LittleFS.exists(CONFIG_FILE)) LittleFS.remove(CONFIG_FILE);
+  Serial.println("[Config] Deleted");
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1190,8 +1236,8 @@ void startNormalServer() {
   server.on("/runtime/reset",  HTTP_POST, handleRuntimeReset);
   server.onNotFound([]() {
     if (!checkAuth()) return;
-    // Only web page files.  config.json holds the Wi-Fi password and access
-    // codes in plain text, so .json and anything else unknown is never served.
+    // Only web page files.  An old config.json (before it is moved to NVS)
+    // holds the Wi-Fi password and access codes, so .json is never served.
     String path = server.uri();
     const char* ct = nullptr;
     if      (path.endsWith(".html")) ct = "text/html";
@@ -1263,6 +1309,7 @@ void setup() {
   if (!LittleFS.begin(true)) { Serial.println("[FS] Mount failed!"); return; }
   Serial.println("[FS] LittleFS mounted");
 
+  migrateConfigFile();
   if (resetButtonHeld()) { Serial.println("[Reset] Wiping config"); deleteConfig(); }
 
   if (!configExists() || !loadConfig()) startConfigPortal();
