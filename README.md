@@ -74,8 +74,7 @@ Before plugging in the ESP32 you may need to install a USB driver so your comput
 # Updating the Firmware
 To update an existing controller, download the new version and open it in VS Code the same way as above, then:
 1. Flash the firmware with General -> Upload.  This keeps all of your settings and the fan runtime.
-2. Only if the release notes say the web pages changed, also run Platform -> Upload Filesystem Image.  This **erases your saved settings** (Wi-Fi, printers, and access codes), so you will need to go through **Initial Setup of the Controller** and **Configuring the AFE** again.  The fan runtime is kept from version 1.1.1 on.
-   * Always flash the firmware (step 1) first and let the controller start up once before uploading the filesystem image.
+2. If the release notes say the web pages changed, also run Platform -> Upload Filesystem Image.  This only replaces the web pages and keeps your settings and fan runtime.
 
 # Initial Setup of the Controller
 1. By default the ESP32 will broadcast a wireless network called 'BambuAFE-Setup'.  Look for and connect to this WiFi network.  [Image](images/ConnectingToBuiltInWiFi.jpg)
